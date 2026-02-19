@@ -5,11 +5,13 @@ mod cli;       // 声明 cli 模块，对应 src/cli.rs
 mod config;    // 声明 config 模块，对应 src/config.rs
 mod gowall;    // 声明 gowall 模块，对应 src/gowall.rs
 mod wallhaven; // 声明 wallhaven 模块，对应 src/wallhaven.rs
+mod source;
 
 use clap::Parser;                    // 引入 Parser trait 的 parse() 方法
 use cli::{Cli, Commands};            // 引入 CLI 结构体和子命令枚举
 use config::AppConfig;               // 引入应用配置
 use wallhaven::WallhavenClient;      // 引入 Wallhaven API 客户端
+use source::{SearchOptions, WallpaperSource};
 
 /// `#[tokio::main]` 宏将 async main 转换为同步 main + tokio 运行时
 /// 等价于：
@@ -109,38 +111,34 @@ async fn handle_fetch(
 
     println!("正在搜索壁纸...");
 
-    // 异步搜索壁纸
-    // .await 挂起当前函数，等待 HTTP 请求完成
-    // ? 在请求失败时提前返回错误
-    let wallpapers = client
-        .search(query, resolution, categories, purity, sorting)
-        .await?;
+    let options = SearchOptions {
+        query,
+        resolution,
+        categories,
+        purity,
+        sorting,
+    };
+
+    let wallpapers = client.search(options).await?;
 
     if wallpapers.is_empty() {
         println!("未找到符合条件的壁纸。");
         return Ok(());
     }
 
-    // .iter() 创建不可变引用的迭代器
-    // .take(count) 只取前 count 个元素（惰性求值，不会遍历整个列表）
-    // .enumerate() 为每个元素附加索引 (index, &wallpaper)
     let selected = wallpapers.iter().take(count);
 
     for (i, wallpaper) in selected.enumerate() {
         println!(
             "[{}/{}] 正在下载: {} ({})",
             i + 1,
-            count.min(wallpapers.len()), // min() 取两者较小值，防止 count > 实际数量
+            count.min(wallpapers.len()),
             wallpaper.id,
             wallpaper.resolution
         );
 
-        // 异步下载壁纸到指定目录
-        // &config.wallpaper_dir 借用路径，download() 接受 impl AsRef<Path>
         let save_path = client.download(wallpaper, &config.wallpaper_dir).await?;
 
-        // .display() 返回一个实现了 Display trait 的包装类型
-        // 用于跨平台安全地打印路径（处理非 UTF-8 路径）
         println!("已保存: {}", save_path.display());
     }
 
@@ -209,21 +207,21 @@ async fn handle_run(
     let client = WallhavenClient::new(config.api_key.clone());
 
     println!("正在搜索壁纸...");
-    let wallpapers = client
-        .search(query, resolution, categories, purity, sorting)
-        .await?;
 
-    // .first() 返回 Option<&Wallpaper>，获取第一个元素的不可变引用
-    let wallpaper = wallpapers
-        .first()
-        .ok_or("未找到符合条件的壁纸")?; // ok_or() 将 None 转为 Err
+    let options = SearchOptions {
+        query,
+        resolution,
+        categories,
+        purity,
+        sorting,
+    };
 
-    println!(
-        "找到壁纸: {} ({})",
-        wallpaper.id, wallpaper.resolution
-    );
+    let wallpapers = client.search(options).await?;
 
-    // 下载壁纸
+    let wallpaper = wallpapers.first().ok_or("未找到符合条件的壁纸")?;
+
+    println!("找到壁纸: {} ({})", wallpaper.id, wallpaper.resolution);
+
     println!("正在下载...");
     let save_path = client.download(wallpaper, &config.wallpaper_dir).await?;
     println!("已保存: {}", save_path.display());

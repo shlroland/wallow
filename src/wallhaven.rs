@@ -1,9 +1,11 @@
 // wallhaven.rs — Wallhaven API 异步客户端模块
 // 负责与 Wallhaven API 交互：搜索壁纸和下载图片
 
-use serde::Deserialize;       // 反序列化 trait，用于将 JSON 转为 Rust 结构体
-use std::path::Path;          // 路径的不可变借用类型（Borrowed），用于函数参数
-use tokio::fs::File;          // tokio 提供的异步文件操作
+use crate::source::{SearchOptions, WallpaperInfo, WallpaperSource};
+use async_trait::async_trait;
+use serde::Deserialize; // 反序列化 trait，用于将 JSON 转为 Rust 结构体
+use std::path::{Path, PathBuf}; // 路径的不可变借用类型（Borrowed），用于函数参数
+use tokio::fs::File; // tokio 提供的异步文件操作
 use tokio::io::AsyncWriteExt; // 异步写入 trait，提供 write_all() 等方法
 
 /// Wallhaven API 搜索响应的顶层结构
@@ -54,6 +56,66 @@ pub struct WallhavenClient {
     api_key: Option<String>,
 }
 
+#[async_trait]
+impl WallpaperSource for WallhavenClient {
+    async fn search(
+        &self,
+        options: SearchOptions<'_>,
+    ) -> Result<Vec<WallpaperInfo>, Box<dyn std::error::Error>> {
+        let url = format!("{}/search", self.base_url);
+
+        let mut params: Vec<(&str, &str)> = vec![
+            ("resolutions", options.resolution),
+            ("categories", options.categories),
+            ("purity", options.purity),
+            ("sorting", options.sorting),
+        ];
+
+        if let Some(q) = options.query {
+            params.push(("q", q));
+        }
+
+        if let Some(key) = self.api_key.as_deref() {
+            params.push(("apikey", key));
+        }
+
+        let response = self.client.get(&url).query(&params).send().await?;
+
+        let search_response: SearchResponse = response.json().await?;
+
+        let info_list = search_response
+            .data
+            .into_iter()
+            .map(|w| WallpaperInfo {
+                id: w.id,
+                url: w.path,
+                resolution: w.resolution,
+                source: "wallhaven".to_string(),
+            })
+            .collect();
+
+        Ok(info_list)
+    }
+
+    async fn download(
+        &self,
+        info: &WallpaperInfo,
+        save_dir: &Path,
+    ) -> Result<PathBuf, Box<dyn std::error::Error>> {
+        let filename = info.url.rsplit('/').next().unwrap_or("wallpaper.jpg");
+
+        let save_path = save_dir.join(filename);
+
+        let response = self.client.get(&info.url).send().await?;
+        let bytes = response.bytes().await?;
+
+        let mut file = File::create(&save_path).await?;
+        file.write_all(&bytes).await?;
+
+        Ok(save_path)
+    }
+}
+
 impl WallhavenClient {
     /// 创建新的 Wallhaven 客户端
     ///
@@ -87,12 +149,8 @@ impl WallhavenClient {
     /// # 返回值
     /// - `Result<Vec<Wallpaper>, Box<dyn std::error::Error>>`
     ///   成功返回壁纸列表，失败返回动态错误类型
-    ///
-    /// # Rust 特性说明
-    /// - `async fn` 定义异步函数，返回一个 Future，需要 `.await` 来执行
-    /// - `&self` 不可变借用自身，允许多个搜索并发执行
-    /// - `Box<dyn std::error::Error>` 是 trait object，可以包装任何实现了 Error trait 的类型
-    pub async fn search(
+    #[allow(dead_code)]
+    pub async fn search_raw(
         &self,
         query: Option<&str>,
         resolution: &str,
@@ -150,19 +208,8 @@ impl WallhavenClient {
     }
 
     /// 下载单张壁纸到指定目录
-    ///
-    /// # 参数
-    /// - `wallpaper`: 要下载的壁纸信息（不可变借用）
-    /// - `save_dir`: 保存目录路径，`&Path` 是路径的不可变借用
-    ///
-    /// # 返回值
-    /// - `Ok(PathBuf)`: 下载成功，返回保存的文件完整路径
-    /// - `Err(...)`: 下载或写入失败
-    ///
-    /// # Rust 特性说明
-    /// - `impl AsRef<Path>` 是泛型约束，接受任何可以转为 `&Path` 的类型
-    ///   包括 `&str`、`String`、`PathBuf`、`&Path` 等，提高 API 灵活性
-    pub async fn download(
+    #[allow(dead_code)]
+    pub async fn download_raw(
         &self,
         wallpaper: &Wallpaper,
         save_dir: impl AsRef<Path>,
