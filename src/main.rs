@@ -4,6 +4,7 @@
 mod cli; // 声明 cli 模块，对应 src/cli.rs
 mod config; // 声明 config 模块，对应 src/config.rs
 mod gowall; // 声明 gowall 模块，对应 src/gowall.rs
+mod setter;
 mod source;
 mod wallhaven; // 声明 wallhaven 模块，对应 src/wallhaven.rs
 
@@ -117,13 +118,32 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             handle_run(
                 &config,
                 query.as_deref(),
-                theme,
+                Some(theme), // 将 &String 转为 Option<&str>
                 resolution.as_deref(),
                 categories.as_deref(),
                 purity.as_deref(),
                 sorting.as_deref(),
             )
             .await?;
+        }
+
+        Commands::Set { query, theme } => {
+            // 1. 下载并转换（如果指定了主题）
+            let image_path = handle_run(
+                &config,
+                query.as_deref(),
+                theme.as_deref(),
+                None, // 使用配置默认值
+                None,
+                None,
+                None,
+            )
+            .await?;
+
+            // 2. 设置壁纸
+            println!("{}", t!("setting_wallpaper"));
+            setter::set_from_path(&image_path)?;
+            println!("{}", t!("set_done"));
         }
     }
 
@@ -249,12 +269,12 @@ fn handle_themes() -> Result<(), Box<dyn std::error::Error>> {
 async fn handle_run(
     config: &AppConfig,
     query: Option<&str>,
-    theme: &str,
+    theme: Option<&str>,
     resolution: Option<&str>,
     categories: Option<&str>,
     purity: Option<&str>,
     sorting: Option<&str>,
-) -> Result<(), Box<dyn std::error::Error>> {
+) -> Result<std::path::PathBuf, Box<dyn std::error::Error>> {
     let client = WallhavenClient::new(config.api_key.clone());
 
     println!("{}", t!("search_start"));
@@ -285,18 +305,26 @@ async fn handle_run(
     let save_path = client.download(wallpaper, &config.wallpaper_dir).await?;
     println!("{}", t!("save_path", path => save_path.display()));
 
-    // 转换主题
-    println!("{}", t!("convert_start", image => save_path.display(), theme => theme));
+    // 转换主题（如果指定了主题）
+    if let Some(theme_name) = theme {
+        println!(
+            "{}",
+            t!("convert_start", image => save_path.display(), theme => theme_name)
+        );
 
-    // save_path.to_str() 将 PathBuf 转为 Option<&str>
-    // .ok_or()? 在路径包含非 UTF-8 字符时返回错误
-    let image_str = save_path.to_str().ok_or(t!("error_utf8"))?;
+        let image_str = save_path.to_str().ok_or(t!("error_utf8"))?;
+        let output_dir = config.converted_dir.display().to_string();
+        gowall::convert(image_str, theme_name, Some(output_dir.as_str()))?;
 
-    let output_dir = config.converted_dir.display().to_string();
-    gowall::convert(image_str, theme, Some(output_dir.as_str()))?;
+        // 转换后的路径逻辑：gowall 默认会将转换后的文件放在输出目录下，文件名相同
+        let file_name = save_path.file_name().ok_or("无法获取文件名")?;
+        let converted_path = config.converted_dir.join(file_name);
 
-    println!("{}", t!("all_done", theme => theme));
-    Ok(())
+        println!("{}", t!("all_done", theme => theme_name));
+        Ok(converted_path)
+    } else {
+        Ok(save_path)
+    }
 }
 
 /// 处理 schedule 子命令：自动下载每日壁纸

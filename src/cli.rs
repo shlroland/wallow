@@ -92,6 +92,17 @@ pub enum Commands {
     /// 定时任务：根据配置自动下载一张随机壁纸
     Schedule,
 
+    /// 一键更换：下载、转换并设置为系统壁纸
+    Set {
+        /// 搜索关键词
+        #[arg(short, long)]
+        query: Option<String>,
+
+        /// 目标主题名称（若不指定则使用原图）
+        #[arg(short, long)]
+        theme: Option<String>,
+    },
+
     /// 一键完成：下载壁纸 + 应用主题（如 `wallow run -q nature -t catppuccin`）
     Run {
         /// 搜索关键词
