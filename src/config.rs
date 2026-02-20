@@ -6,11 +6,68 @@ use std::env; // 环境变量模块
 use std::fs; // 文件系统模块
 use std::path::{Path, PathBuf}; // 路径处理类型
 
-/// 映射 config.toml 文件内容的结构体
-/// `#[derive(Deserialize)]` 允许 toml 库将字符串解析为此结构体
-#[derive(Debug, Deserialize)]
+/// 映射 config.toml 文件内容的嵌套结构体
+#[derive(Debug, Deserialize, Default)]
 struct ConfigFile {
-    /// 对应 TOML 中的 api_key 字段
+    #[serde(default)]
+    common: CommonConfig,
+    #[serde(default)]
+    source: SourceConfigs,
+}
+
+#[derive(Debug, Deserialize, Default)]
+struct CommonConfig {
+    /// 壁纸保存根目录
+    wallpaper_dir: Option<String>,
+    /// 默认搜索参数
+    #[serde(default)]
+    search: SearchDefaults,
+}
+
+#[derive(Debug, Deserialize)]
+pub struct SearchDefaults {
+    #[serde(default = "default_resolution")]
+    pub resolution: String,
+    #[serde(default = "default_categories")]
+    pub categories: String,
+    #[serde(default = "default_purity")]
+    pub purity: String,
+    #[serde(default = "default_sorting")]
+    pub sorting: String,
+}
+
+impl Default for SearchDefaults {
+    fn default() -> Self {
+        Self {
+            resolution: default_resolution(),
+            categories: default_categories(),
+            purity: default_purity(),
+            sorting: default_sorting(),
+        }
+    }
+}
+
+fn default_resolution() -> String {
+    "3840x2160".to_string()
+}
+fn default_categories() -> String {
+    "111".to_string()
+}
+fn default_purity() -> String {
+    "100".to_string()
+}
+fn default_sorting() -> String {
+    "random".to_string()
+}
+
+#[derive(Debug, Deserialize, Default)]
+struct SourceConfigs {
+    #[serde(default)]
+    wallhaven: WallhavenConfig,
+}
+
+#[derive(Debug, Deserialize, Default)]
+struct WallhavenConfig {
     api_key: Option<String>,
 }
 
@@ -22,37 +79,33 @@ pub struct AppConfig {
     pub wallpaper_dir: PathBuf,
     /// 转换后壁纸的保存目录
     pub converted_dir: PathBuf,
-    /// 配置文件所在路径（用于提示用户）
+    /// 配置文件所在路径
     pub config_path: PathBuf,
+    /// 默认搜索参数
+    pub search_defaults: SearchDefaults,
 }
 
 impl AppConfig {
     /// 初始化配置
-    ///
-    /// # 逐行详解
     pub fn new() -> Self {
-        // 1. 确定配置路径：遵循 Unix 风格的 ~/.config/wallow/config.toml
-        // 获取 $HOME 环境变量。env::var 返回 Result，如果取不到则通过 expect 抛出 panic
         let home = env::var("HOME").expect("无法获取 $HOME 环境变量");
-
-        // 使用 PathBuf::from 创建路径，并用 .join() 拼接子目录
-        // 这样在 Unix 下会自动生成 ~/.config/wallow 路径
         let config_dir = PathBuf::from(home).join(".config").join("wallow");
         let config_path = config_dir.join("config.toml");
 
-        // 2. 尝试从文件读取配置
-        let config_file = Self::load_config_from_file(&config_path);
+        let config_file = Self::load_config_from_file(&config_path).unwrap_or_default();
 
-        // 3. 合并优先级：环境变量 > 配置文件内容
-        // env::var("...").ok()：获取环境变量，并将 Result 转为 Option
-        // .or(...)：如果前面是 None，则尝试取后面的配置内容
-        // .and_then(|cf| cf.api_key)：如果配置对象存在，则取出其中的 api_key
+        // 优先级：环境变量 > 配置文件内容
         let api_key = env::var("WALLHAVEN_API_KEY")
             .ok()
-            .or(config_file.and_then(|cf| cf.api_key));
+            .or(config_file.source.wallhaven.api_key);
 
-        // 4. 设置壁纸存储路径
-        let wallpaper_dir = PathBuf::from("wallpapers");
+        // 壁纸目录：配置文件 > 默认值 "wallpapers"
+        let wallpaper_dir = config_file
+            .common
+            .wallpaper_dir
+            .map(PathBuf::from)
+            .unwrap_or_else(|| PathBuf::from("wallpapers"));
+
         let converted_dir = wallpaper_dir.join("converted");
 
         Self {
@@ -60,6 +113,7 @@ impl AppConfig {
             wallpaper_dir,
             converted_dir,
             config_path,
+            search_defaults: config_file.common.search,
         }
     }
 

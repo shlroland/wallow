@@ -66,10 +66,10 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             handle_fetch(
                 &config,
                 query.as_deref(),
-                resolution,
-                categories,
-                purity,
-                sorting,
+                resolution.as_deref(),
+                categories.as_deref(),
+                purity.as_deref(),
+                sorting.as_deref(),
                 *count,
             )
             .await?;
@@ -114,10 +114,10 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                 &config,
                 query.as_deref(),
                 theme,
-                resolution,
-                categories,
-                purity,
-                sorting,
+                resolution.as_deref(),
+                categories.as_deref(),
+                purity.as_deref(),
+                sorting.as_deref(),
             )
             .await?;
         }
@@ -140,10 +140,10 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 async fn handle_fetch(
     config: &AppConfig,
     query: Option<&str>,
-    resolution: &str,
-    categories: &str,
-    purity: &str,
-    sorting: &str,
+    resolution: Option<&str>,
+    categories: Option<&str>,
+    purity: Option<&str>,
+    sorting: Option<&str>,
     count: usize,
 ) -> Result<(), Box<dyn std::error::Error>> {
     // 创建 Wallhaven 客户端
@@ -153,12 +153,13 @@ async fn handle_fetch(
 
     println!("{}", t!("search_start"));
 
+    // 合并配置优先级：命令行参数 > 配置文件默认值
     let options = SearchOptions {
         query,
-        resolution,
-        categories,
-        purity,
-        sorting,
+        resolution: resolution.unwrap_or(&config.search_defaults.resolution),
+        categories: categories.unwrap_or(&config.search_defaults.categories),
+        purity: purity.unwrap_or(&config.search_defaults.purity),
+        sorting: sorting.unwrap_or(&config.search_defaults.sorting),
     };
 
     let wallpapers = client.search(options).await?;
@@ -245,10 +246,10 @@ async fn handle_run(
     config: &AppConfig,
     query: Option<&str>,
     theme: &str,
-    resolution: &str,
-    categories: &str,
-    purity: &str,
-    sorting: &str,
+    resolution: Option<&str>,
+    categories: Option<&str>,
+    purity: Option<&str>,
+    sorting: Option<&str>,
 ) -> Result<(), Box<dyn std::error::Error>> {
     let client = WallhavenClient::new(config.api_key.clone());
 
@@ -256,10 +257,10 @@ async fn handle_run(
 
     let options = SearchOptions {
         query,
-        resolution,
-        categories,
-        purity,
-        sorting,
+        resolution: resolution.unwrap_or(&config.search_defaults.resolution),
+        categories: categories.unwrap_or(&config.search_defaults.categories),
+        purity: purity.unwrap_or(&config.search_defaults.purity),
+        sorting: sorting.unwrap_or(&config.search_defaults.sorting),
     };
 
     let wallpapers = client.search(options).await?;

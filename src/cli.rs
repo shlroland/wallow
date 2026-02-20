@@ -37,24 +37,23 @@ pub enum Commands {
         #[arg(short, long)]
         query: Option<String>,
 
-        // `default_value` 在用户未提供时使用该默认值
-        /// 壁纸分辨率 [默认: 3840x2160]
-        #[arg(short, long, default_value = "3840x2160")]
-        resolution: String,
+        /// 壁纸分辨率
+        #[arg(short, long)]
+        resolution: Option<String>,
 
         // 每一位对应一个分类：第1位=general, 第2位=anime, 第3位=people
         /// 壁纸分类开关 (general/anime/people)，如 "111"=全部, "100"=仅general
-        #[arg(short, long, default_value = "111")]
-        categories: String,
+        #[arg(short, long)]
+        categories: Option<String>,
 
         // 访问 NSFW 内容需要设置 WALLHAVEN_API_KEY 环境变量
         /// 内容纯净度开关 (sfw/sketchy/nsfw)，如 "100"=仅SFW
-        #[arg(short, long, default_value = "100")]
-        purity: String,
+        #[arg(short, long)]
+        purity: Option<String>,
 
         /// 排序方式 (date_added/relevance/random/views/favorites/toplist)
-        #[arg(short, long, default_value = "random")]
-        sorting: String,
+        #[arg(short, long)]
+        sorting: Option<String>,
 
         // `value_name` 自定义帮助信息中的参数占位符名称
         /// 下载数量
@@ -101,19 +100,19 @@ pub enum Commands {
         theme: String,
 
         /// 壁纸分辨率
-        #[arg(short, long, default_value = "3840x2160")]
-        resolution: String,
+        #[arg(short, long)]
+        resolution: Option<String>,
 
         /// 壁纸分类开关
-        #[arg(short, long, default_value = "111")]
-        categories: String,
+        #[arg(short, long)]
+        categories: Option<String>,
 
         /// 内容纯净度开关
-        #[arg(short, long, default_value = "100")]
-        purity: String,
+        #[arg(short, long)]
+        purity: Option<String>,
 
         /// 排序方式
-        #[arg(short, long, default_value = "random")]
-        sorting: String,
+        #[arg(short, long)]
+        sorting: Option<String>,
     },
 }
