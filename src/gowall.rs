@@ -4,6 +4,32 @@
 use std::path::Path; // 路径的不可变借用类型
 use std::process::Command; // 用于创建和执行子进程
 
+/// 检测系统是否已安装 gowall 命令行工具
+///
+/// # 实现原理
+/// - 尝试执行 `gowall --version`，通过返回结果判断是否可用
+/// - `Command::new("gowall")` 会在系统 `$PATH` 中查找 gowall 二进制文件
+/// - `.arg("--version")` 添加参数，让 gowall 快速返回而不执行实际操作
+/// - `.output()` 同步执行命令并捕获输出，返回 `Result<Output, io::Error>`
+///
+/// # 返回值
+/// - `Ok(())`: gowall 已安装且可正常执行
+/// - `Err(...)`: gowall 未安装或不可执行，错误信息包含安装指引
+///
+/// # Rust 特性说明
+/// - `match` 结合 `if` 守卫（guard）：`Ok(output) if output.status.success()`
+///   先匹配 `Ok` 变体，再检查 `status.success()`，两个条件同时满足才进入该分支
+/// - `_` 通配符匹配所有其他情况（命令不存在、权限不足、非零退出码等）
+/// - `.into()` 利用 `From` trait 将 `String` 自动转换为 `Box<dyn Error>`
+pub fn check_installed() -> Result<(), Box<dyn std::error::Error>> {
+    match Command::new("gowall").arg("--version").output() {
+        // 命令执行成功且退出码为 0，说明 gowall 已安装
+        Ok(output) if output.status.success() => Ok(()),
+        // 其他所有情况：命令不存在、执行失败、非零退出码
+        _ => Err("gowall 未安装，请先安装: https://github.com/Achno/gowall#installation".into()),
+    }
+}
+
 /// 调用 `gowall convert` 对图片应用配色主题
 ///
 /// # 参数

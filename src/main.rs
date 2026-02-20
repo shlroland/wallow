@@ -59,11 +59,13 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             theme,
             output,
         } => {
+            gowall::check_installed()?;
             handle_convert(&config, image, theme, output.as_deref())?;
         }
 
         // Themes 变体没有字段，直接匹配
         Commands::Themes => {
+            gowall::check_installed()?;
             handle_themes()?;
         }
 
@@ -76,6 +78,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             purity,
             sorting,
         } => {
+            gowall::check_installed()?;
             handle_run(&config, query.as_deref(), theme, resolution, categories, purity, sorting)
                 .await?;
         }
