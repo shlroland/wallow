@@ -19,6 +19,8 @@ struct ConfigFile {
 struct CommonConfig {
     /// 壁纸保存根目录
     wallpaper_dir: Option<String>,
+    /// 定时任务壁纸保存目录
+    schedule_dir: Option<String>,
     /// 默认搜索参数
     #[serde(default)]
     search: SearchDefaults,
@@ -79,6 +81,8 @@ pub struct AppConfig {
     pub wallpaper_dir: PathBuf,
     /// 转换后壁纸的保存目录
     pub converted_dir: PathBuf,
+    /// 定时任务保存目录
+    pub schedule_dir: PathBuf,
     /// 配置文件所在路径
     pub config_path: PathBuf,
     /// 默认搜索参数
@@ -108,42 +112,39 @@ impl AppConfig {
 
         let converted_dir = wallpaper_dir.join("converted");
 
+        // 定时任务目录：配置文件 > 默认值 "wallpapers/schedule"
+        let schedule_dir = config_file
+            .common
+            .schedule_dir
+            .map(PathBuf::from)
+            .unwrap_or_else(|| wallpaper_dir.join("schedule"));
+
         Self {
             api_key,
             wallpaper_dir,
             converted_dir,
+            schedule_dir,
             config_path,
             search_defaults: config_file.common.search,
         }
     }
 
     /// 辅助函数：解析 TOML 配置文件
-    ///
-    /// # 逐行详解
     fn load_config_from_file(path: &Path) -> Option<ConfigFile> {
-        // fs::read_to_string(path)：尝试从给定路径读取整个文件为字符串
-        // .ok()：如果读取失败（如文件不存在），忽略错误并返回 None
-        fs::read_to_string(path).ok().and_then(|content| {
-            // toml::from_str(&content)：将字符串解析为 ConfigFile 结构体
-            // 这里的 &content 是对字符串内容的不可变借用
-            toml::from_str(&content).ok()
-        })
+        fs::read_to_string(path)
+            .ok()
+            .and_then(|content| toml::from_str(&content).ok())
     }
 
     /// 确保所有必要的目录都存在
-    ///
-    /// # 逐行详解
     pub fn ensure_dirs(&self) -> std::io::Result<()> {
-        // self.config_path.parent()：获取配置文件的父目录（即 ~/.config/wallow）
         if let Some(parent) = self.config_path.parent() {
-            // fs::create_dir_all(parent)：递归创建目录（类似 mkdir -p）
-            // ? 操作符：如果成功则继续，如果失败则返回 Err(io::Error)
             fs::create_dir_all(parent)?;
         }
 
-        // 创建壁纸相关的存储目录
         fs::create_dir_all(&self.wallpaper_dir)?;
         fs::create_dir_all(&self.converted_dir)?;
+        fs::create_dir_all(&self.schedule_dir)?;
 
         Ok(())
     }

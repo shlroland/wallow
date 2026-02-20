@@ -91,6 +91,10 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             handle_themes()?;
         }
 
+        Commands::Schedule => {
+            handle_schedule(&config).await?;
+        }
+
         Commands::Completions { shell } => {
             generate(
                 *shell,
@@ -292,5 +296,47 @@ async fn handle_run(
     gowall::convert(image_str, theme, Some(output_dir.as_str()))?;
 
     println!("{}", t!("all_done", theme => theme));
+    Ok(())
+}
+
+/// 处理 schedule 子命令：自动下载每日壁纸
+async fn handle_schedule(config: &AppConfig) -> Result<(), Box<dyn std::error::Error>> {
+    let client = WallhavenClient::new(config.api_key.clone());
+
+    println!("{}", t!("search_start"));
+
+    // 使用配置中的默认参数进行随机搜索
+    let options = SearchOptions {
+        query: None,
+        resolution: &config.search_defaults.resolution,
+        categories: &config.search_defaults.categories,
+        purity: &config.search_defaults.purity,
+        sorting: "random", // 定时任务强制使用随机以获得新鲜感
+    };
+
+    let wallpapers = client.search(options).await?;
+    let wallpaper = wallpapers.first().ok_or(t!("error_no_wallpapers"))?;
+
+    println!(
+        "{}",
+        t!(
+            "download_info",
+            current => 1,
+            total => 1,
+            id => wallpaper.id,
+            res => wallpaper.resolution
+        )
+    );
+
+    // 保存到指定的定时任务目录
+    let save_path = client.download(wallpaper, &config.schedule_dir).await?;
+    println!("{}", t!("save_path", path => save_path.display()));
+
+    // 获取当前程序的绝对路径用于指引
+    let bin_path = std::env::current_exe()?;
+    let bin_str = bin_path.to_string_lossy();
+
+    println!("{}", t!("schedule_tip", bin_path => bin_str));
+
     Ok(())
 }

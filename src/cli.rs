@@ -89,6 +89,9 @@ pub enum Commands {
         shell: Shell,
     },
 
+    /// 定时任务：根据配置自动下载一张随机壁纸
+    Schedule,
+
     /// 一键完成：下载壁纸 + 应用主题（如 `wallow run -q nature -t catppuccin`）
     Run {
         /// 搜索关键词
