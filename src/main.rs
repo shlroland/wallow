@@ -7,10 +7,14 @@ mod gowall; // 声明 gowall 模块，对应 src/gowall.rs
 mod source;
 mod wallhaven; // 声明 wallhaven 模块，对应 src/wallhaven.rs
 
+// 初始化多语言支持，嵌入 locales 目录下的所有翻译
+rust_i18n::i18n!("locales");
+
 use clap::{CommandFactory, Parser}; // 引入 Parser trait 的 parse() 方法; CommandFactory 用于生成补全脚本
 use clap_complete::generate; // 引入补全脚本生成函数
 use cli::{Cli, Commands}; // 引入 CLI 结构体和子命令枚举
 use config::AppConfig; // 引入应用配置
+use rust_i18n::t; // 引入翻译宏
 use source::{SearchOptions, WallpaperSource};
 use wallhaven::WallhavenClient; // 引入 Wallhaven API 客户端
 
@@ -24,6 +28,15 @@ use wallhaven::WallhavenClient; // 引入 Wallhaven API 客户端
 /// 这是 tokio 异步运行时的标准入口写法
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
+    // 自动检测系统语言并设置
+    // rust-i18n 默认会读取 LANG 环境变量，但我们可以显式设置以防万一
+    let locale = std::env::var("LANG").unwrap_or_else(|_| "en".to_string());
+    if locale.starts_with("zh") {
+        rust_i18n::set_locale("zh-CN");
+    } else {
+        rust_i18n::set_locale("en");
+    }
+
     // 解析命令行参数
     // Cli::parse() 由 #[derive(Parser)] 自动生成
     // 如果参数不合法，clap 会自动打印错误信息并退出
@@ -138,7 +151,7 @@ async fn handle_fetch(
     // 因为 WallhavenClient::new() 需要获取 api_key 的所有权
     let client = WallhavenClient::new(config.api_key.clone());
 
-    println!("正在搜索壁纸...");
+    println!("{}", t!("search_start"));
 
     let options = SearchOptions {
         query,
@@ -151,27 +164,31 @@ async fn handle_fetch(
     let wallpapers = client.search(options).await?;
 
     if wallpapers.is_empty() {
-        println!("未找到符合条件的壁纸。");
+        println!("{}", t!("no_wallpapers"));
         return Ok(());
     }
 
     let selected = wallpapers.iter().take(count);
+    let total = count.min(wallpapers.len());
 
     for (i, wallpaper) in selected.enumerate() {
         println!(
-            "[{}/{}] 正在下载: {} ({})",
-            i + 1,
-            count.min(wallpapers.len()),
-            wallpaper.id,
-            wallpaper.resolution
+            "{}",
+            t!(
+                "download_info",
+                current => i + 1,
+                total => total,
+                id => wallpaper.id,
+                res => wallpaper.resolution
+            )
         );
 
         let save_path = client.download(wallpaper, &config.wallpaper_dir).await?;
 
-        println!("已保存: {}", save_path.display());
+        println!("{}", t!("save_path", path => save_path.display()));
     }
 
-    println!("下载完成！共 {} 张壁纸。", count.min(wallpapers.len()));
+    println!("{}", t!("download_done", count => total));
     Ok(())
 }
 
@@ -184,7 +201,7 @@ fn handle_convert(
     theme: &str,
     output: Option<&str>,
 ) -> Result<(), Box<dyn std::error::Error>> {
-    println!("正在转换壁纸主题: {} -> {}", image, theme);
+    println!("{}", t!("convert_start", image => image, theme => theme));
 
     // 确定输出路径
     // 如果用户指定了 --output，使用用户指定的路径
@@ -200,7 +217,7 @@ fn handle_convert(
     // gowall::convert 的第三个参数是 Option<impl AsRef<Path>>
     gowall::convert(image, theme, Some(output_path.as_str()))?;
 
-    println!("转换完成！输出目录: {}", output_path);
+    println!("{}", t!("convert_done", path => output_path));
     Ok(())
 }
 
@@ -208,7 +225,7 @@ fn handle_convert(
 fn handle_themes() -> Result<(), Box<dyn std::error::Error>> {
     let themes = gowall::list_themes()?;
 
-    println!("可用的 gowall 主题 ({} 个):", themes.len());
+    println!("{}", t!("themes_title", count => themes.len()));
     println!("{}", "-".repeat(30));
 
     // .iter() 创建不可变引用的迭代器
@@ -235,7 +252,7 @@ async fn handle_run(
 ) -> Result<(), Box<dyn std::error::Error>> {
     let client = WallhavenClient::new(config.api_key.clone());
 
-    println!("正在搜索壁纸...");
+    println!("{}", t!("search_start"));
 
     let options = SearchOptions {
         query,
@@ -247,24 +264,32 @@ async fn handle_run(
 
     let wallpapers = client.search(options).await?;
 
-    let wallpaper = wallpapers.first().ok_or("未找到符合条件的壁纸")?;
+    let wallpaper = wallpapers.first().ok_or(t!("error_no_wallpapers"))?;
 
-    println!("找到壁纸: {} ({})", wallpaper.id, wallpaper.resolution);
+    println!(
+        "{}",
+        t!(
+            "download_info",
+            current => 1,
+            total => 1,
+            id => wallpaper.id,
+            res => wallpaper.resolution
+        )
+    );
 
-    println!("正在下载...");
     let save_path = client.download(wallpaper, &config.wallpaper_dir).await?;
-    println!("已保存: {}", save_path.display());
+    println!("{}", t!("save_path", path => save_path.display()));
 
     // 转换主题
-    println!("正在应用主题: {}...", theme);
+    println!("{}", t!("convert_start", image => save_path.display(), theme => theme));
 
     // save_path.to_str() 将 PathBuf 转为 Option<&str>
     // .ok_or()? 在路径包含非 UTF-8 字符时返回错误
-    let image_str = save_path.to_str().ok_or("路径包含非 UTF-8 字符")?;
+    let image_str = save_path.to_str().ok_or(t!("error_utf8"))?;
 
     let output_dir = config.converted_dir.display().to_string();
     gowall::convert(image_str, theme, Some(output_dir.as_str()))?;
 
-    println!("全部完成！壁纸已下载并应用 {} 主题。", theme);
+    println!("{}", t!("all_done", theme => theme));
     Ok(())
 }

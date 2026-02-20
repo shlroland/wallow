@@ -1,8 +1,9 @@
 // gowall.rs — gowall CLI 集成模块
 // 通过 std::process::Command 调用系统安装的 gowall 二进制文件
 
+use rust_i18n::t;
 use std::path::Path; // 路径的不可变借用类型
-use std::process::Command; // 用于创建和执行子进程
+use std::process::Command; // 用于创建和执行子进程 // 引入翻译宏
 
 /// 检测系统是否已安装 gowall 命令行工具
 ///
@@ -26,7 +27,7 @@ pub fn check_installed() -> Result<(), Box<dyn std::error::Error>> {
         // 命令执行成功且退出码为 0，说明 gowall 已安装
         Ok(output) if output.status.success() => Ok(()),
         // 其他所有情况：命令不存在、执行失败、非零退出码
-        _ => Err("gowall 未安装，请先安装: https://github.com/Achno/gowall#installation".into()),
+        _ => Err(t!("error_gowall_not_installed").into()),
     }
 }
 
@@ -90,7 +91,7 @@ pub fn convert(
         let stderr = String::from_utf8_lossy(&output.stderr).to_string();
         // .into() 将 String 自动转换为 Box<dyn Error>
         // 这利用了 Rust 的 From trait 自动转换机制
-        Err(format!("gowall convert 失败: {}", stderr).into())
+        Err(t!("error_gowall_convert_failed", reason => stderr).into())
     }
 }
 
@@ -127,6 +128,6 @@ pub fn list_themes() -> Result<Vec<String>, Box<dyn std::error::Error>> {
         Ok(themes)
     } else {
         let stderr = String::from_utf8_lossy(&output.stderr).to_string();
-        Err(format!("gowall list 失败: {}", stderr).into())
+        Err(t!("error_gowall_list_failed", reason => stderr).into())
     }
 }
