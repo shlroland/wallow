@@ -2,6 +2,7 @@
 // 使用 clap 的 derive 模式定义所有子命令和参数
 
 use clap::{Parser, Subcommand}; // Parser: 解析命令行参数的 trait; Subcommand: 定义子命令的 trait
+use clap_complete::Shell; // Shell 枚举：Bash, Zsh, Fish, Elvish, PowerShell
 
 // `#[derive(Parser)]` 自动为结构体实现命令行解析逻辑
 // `#[command(...)]` 属性宏用于配置命令的元信息
@@ -77,6 +78,17 @@ pub enum Commands {
 
     /// 列出所有可用的 gowall 主题
     Themes,
+
+    /// 生成 shell 补全脚本（支持 bash, zsh, fish, elvish, powershell）
+    ///
+    /// 用法示例：
+    ///   wallow completions zsh > ~/.zsh/completions/_wallow
+    ///   wallow completions fish > ~/.config/fish/completions/wallow.fish
+    ///   wallow completions bash > ~/.local/share/bash-completion/completions/wallow
+    Completions {
+        /// 目标 shell 类型
+        shell: Shell,
+    },
 
     /// 一键完成：下载壁纸 + 应用主题（如 `wallow run -q nature -t catppuccin`）
     Run {

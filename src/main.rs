@@ -1,17 +1,18 @@
 // main.rs — 程序入口
 // 负责初始化异步运行时、解析命令行参数、分发子命令
 
-mod cli;       // 声明 cli 模块，对应 src/cli.rs
-mod config;    // 声明 config 模块，对应 src/config.rs
-mod gowall;    // 声明 gowall 模块，对应 src/gowall.rs
-mod wallhaven; // 声明 wallhaven 模块，对应 src/wallhaven.rs
+mod cli; // 声明 cli 模块，对应 src/cli.rs
+mod config; // 声明 config 模块，对应 src/config.rs
+mod gowall; // 声明 gowall 模块，对应 src/gowall.rs
 mod source;
+mod wallhaven; // 声明 wallhaven 模块，对应 src/wallhaven.rs
 
-use clap::Parser;                    // 引入 Parser trait 的 parse() 方法
-use cli::{Cli, Commands};            // 引入 CLI 结构体和子命令枚举
-use config::AppConfig;               // 引入应用配置
-use wallhaven::WallhavenClient;      // 引入 Wallhaven API 客户端
+use clap::{CommandFactory, Parser}; // 引入 Parser trait 的 parse() 方法; CommandFactory 用于生成补全脚本
+use clap_complete::generate; // 引入补全脚本生成函数
+use cli::{Cli, Commands}; // 引入 CLI 结构体和子命令枚举
+use config::AppConfig; // 引入应用配置
 use source::{SearchOptions, WallpaperSource};
+use wallhaven::WallhavenClient; // 引入 Wallhaven API 客户端
 
 /// `#[tokio::main]` 宏将 async main 转换为同步 main + tokio 运行时
 /// 等价于：
@@ -49,8 +50,16 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             sorting,
             count,
         } => {
-            handle_fetch(&config, query.as_deref(), resolution, categories, purity, sorting, *count)
-                .await?;
+            handle_fetch(
+                &config,
+                query.as_deref(),
+                resolution,
+                categories,
+                purity,
+                sorting,
+                *count,
+            )
+            .await?;
         }
 
         // 解构 Convert 变体
@@ -69,6 +78,15 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             handle_themes()?;
         }
 
+        Commands::Completions { shell } => {
+            generate(
+                *shell,
+                &mut Cli::command(),
+                "wallow",
+                &mut std::io::stdout(),
+            );
+        }
+
         // 解构 Run 变体（一键完成：下载 + 转换）
         Commands::Run {
             query,
@@ -79,8 +97,16 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             sorting,
         } => {
             gowall::check_installed()?;
-            handle_run(&config, query.as_deref(), theme, resolution, categories, purity, sorting)
-                .await?;
+            handle_run(
+                &config,
+                query.as_deref(),
+                theme,
+                resolution,
+                categories,
+                purity,
+                sorting,
+            )
+            .await?;
         }
     }
 
@@ -234,9 +260,7 @@ async fn handle_run(
 
     // save_path.to_str() 将 PathBuf 转为 Option<&str>
     // .ok_or()? 在路径包含非 UTF-8 字符时返回错误
-    let image_str = save_path
-        .to_str()
-        .ok_or("路径包含非 UTF-8 字符")?;
+    let image_str = save_path.to_str().ok_or("路径包含非 UTF-8 字符")?;
 
     let output_dir = config.converted_dir.display().to_string();
     gowall::convert(image_str, theme, Some(output_dir.as_str()))?;
