@@ -131,11 +131,15 @@ pub enum Commands {
         #[arg(short, long)]
         sorting: Option<String>,
     },
+
     /// 修改配置项的值 (例如: wallow config set query "anime")
     Config {
         #[command(subcommand)]
         action: ConfigAction,
     },
+
+    /// 清理所有带有 wallow- 前缀的下载文件
+    Clean,
 }
 
 /// 配置管理操作

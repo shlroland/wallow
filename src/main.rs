@@ -148,22 +148,52 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         Commands::Config { action } => {
             handle_config(&mut config, action)?;
         }
+        Commands::Clean => {
+            handle_clean(&config)?;
+        }
     }
 
     Ok(())
 }
 
+/// 处理 clean 子命令：清理所有以 wallow- 开头的文件
+fn handle_clean(config: &AppConfig) -> Result<(), Box<dyn std::error::Error>> {
+    let dirs = vec![
+        &config.wallpaper_dir,
+        &config.converted_dir,
+        &config.schedule_dir,
+    ];
+
+    let mut deleted_count = 0;
+
+    for dir in dirs {
+        if !dir.exists() {
+            continue;
+        }
+
+        println!("{}", t!("cleaning_dir", path => dir.display()));
+
+        for entry in std::fs::read_dir(dir)? {
+            let entry = entry?;
+            let path = entry.path();
+
+            if path.is_file() {
+                if let Some(filename) = path.file_name().and_then(|n| n.to_str()) {
+                    if filename.starts_with("wallow-") {
+                        std::fs::remove_file(&path)?;
+                        deleted_count += 1;
+                        println!("  {} {}", t!("deleted"), filename);
+                    }
+                }
+            }
+        }
+    }
+
+    println!("{}", t!("clean_done", count => deleted_count));
+    Ok(())
+}
+
 /// 处理 fetch 子命令：搜索并下载壁纸
-///
-/// # 参数
-/// - `config`: 应用配置的不可变借用
-/// - `query`: 搜索关键词，`Option<&str>` 是 `Option<String>` 的借用形式
-/// - `resolution` ~ `sorting`: 搜索参数，都是 `&str`（字符串借用）
-/// - `count`: 下载数量，`usize` 是无符号整数（Copy 类型，按值传递）
-///
-/// # 异步说明
-/// - `async fn` 返回 Future，需要 `.await` 驱动执行
-/// - 函数内部的 `.await` 点是异步挂起点，让出线程给其他任务
 async fn handle_fetch(
     config: &AppConfig,
     query: Option<&str>,
@@ -174,8 +204,6 @@ async fn handle_fetch(
     count: usize,
 ) -> Result<(), Box<dyn std::error::Error>> {
     // 创建 Wallhaven 客户端
-    // config.api_key.clone() 深拷贝 Option<String>
-    // 因为 WallhavenClient::new() 需要获取 api_key 的所有权
     let client = WallhavenClient::new(config.api_key.clone());
 
     println!("{}", t!("search_start"));
@@ -221,8 +249,6 @@ async fn handle_fetch(
 }
 
 /// 处理 convert 子命令：调用 gowall 转换壁纸主题
-///
-/// 这个函数不是 async 的，因为 gowall 通过 std::process::Command 同步调用
 fn handle_convert(
     config: &AppConfig,
     image: &str,
@@ -232,17 +258,11 @@ fn handle_convert(
     println!("{}", t!("convert_start", image => image, theme => theme));
 
     // 确定输出路径
-    // 如果用户指定了 --output，使用用户指定的路径
-    // 否则使用默认的 converted 目录
-    // .map() 对 Some 值应用闭包，None 保持不变
-    // .unwrap_or_else() 在 None 时执行闭包生成默认值（惰性求值）
     let output_path = output
         .map(|o| o.to_string())
         .unwrap_or_else(|| config.converted_dir.display().to_string());
 
     // 调用 gowall convert
-    // Some(output_path.as_str()) 将 &str 包装为 Option
-    // gowall::convert 的第三个参数是 Option<impl AsRef<Path>>
     gowall::convert(image, theme, Some(output_path.as_str()))?;
 
     println!("{}", t!("convert_done", path => output_path));
@@ -256,8 +276,6 @@ fn handle_themes() -> Result<(), Box<dyn std::error::Error>> {
     println!("{}", t!("themes_title", count => themes.len()));
     println!("{}", "-".repeat(30));
 
-    // .iter() 创建不可变引用的迭代器
-    // |theme| 闭包参数，类型为 &&String（迭代器产生 &String，再被 for 借用）
     for theme in themes.iter() {
         println!("  {}", theme);
     }
@@ -266,9 +284,6 @@ fn handle_themes() -> Result<(), Box<dyn std::error::Error>> {
 }
 
 /// 处理 run 子命令：一键下载 + 转换
-///
-/// 组合 handle_fetch 和 handle_convert 的逻辑
-/// 先下载一张壁纸，然后立即应用指定主题
 async fn handle_run(
     config: &AppConfig,
     query: Option<&str>,
@@ -319,7 +334,7 @@ async fn handle_run(
         let output_dir = config.converted_dir.display().to_string();
         gowall::convert(image_str, theme_name, Some(output_dir.as_str()))?;
 
-        // 转换后的路径逻辑：gowall 默认会将转换后的文件放在输出目录下，文件名相同
+        // 转换后的路径逻辑
         let file_name = save_path.file_name().ok_or("无法获取文件名")?;
         let converted_path = config.converted_dir.join(file_name);
 
