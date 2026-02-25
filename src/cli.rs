@@ -160,17 +160,6 @@ pub enum Commands {
     /// 清理所有带有 wallow- 前缀的下载文件
     ///
     /// 用法示例:
-    ///   wallow config show
-    ///   wallow config dump
-    ///   wallow config set query "anime"
-    Config {
-        #[command(subcommand)]
-        action: ConfigAction,
-    },
-
-    /// 清理所有带有 wallow- 前缀的下载文件
-    ///
-    /// 用法示例:
     ///   wallow clean
     Clean,
 }

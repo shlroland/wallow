@@ -90,10 +90,12 @@ impl WallpaperSource for WallhavenClient {
         info: &WallpaperInfo,
         save_dir: &Path,
     ) -> Result<PathBuf, Box<dyn std::error::Error>> {
-        // 从 URL 中提取原始文件名
+        // 从 URL 中提取原始文件名以获取扩展名
         let original_filename = info.url.rsplit('/').next().unwrap_or("wallpaper.jpg");
-        // 为文件名添加 wallow- 前缀，方便后续统一清理
-        let filename = format!("wallow-{}", original_filename);
+        let extension = original_filename.rsplit('.').next().unwrap_or("jpg");
+
+        // 构建格式化的文件名: wallow-{来源}-{ID}.{扩展名}
+        let filename = format!("wallow-{}-{}.{}", info.source, info.id, extension);
 
         let save_path = save_dir.join(filename);
 
@@ -157,15 +159,16 @@ impl WallhavenClient {
         wallpaper: &Wallpaper,
         save_dir: impl AsRef<Path>,
     ) -> Result<std::path::PathBuf, Box<dyn std::error::Error>> {
-        // 从 URL 中提取原始文件名
+        // 从 URL 中提取原始文件名以获取扩展名
         let original_filename = wallpaper
             .path
             .rsplit('/')
             .next()
             .unwrap_or("wallpaper.jpg");
+        let extension = original_filename.rsplit('.').next().unwrap_or("jpg");
         
-        // 为文件名添加 wallow- 前缀
-        let filename = format!("wallow-{}", original_filename);
+        // 构建格式化的文件名: wallow-wallhaven-{ID}.{扩展名}
+        let filename = format!("wallow-wallhaven-{}.{}", wallpaper.id, extension);
 
         // 构建完整的保存路径
         let save_path = save_dir.as_ref().join(filename);
