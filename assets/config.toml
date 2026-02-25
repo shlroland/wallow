@@ -1,0 +1,36 @@
+#:schema https://raw.githubusercontent.com/shlroland/wallow/master/wallow.schema.json
+
+# wallow 默认配置文件
+
+# wallow 默认配置文件
+# 路径: ~/.config/wallow/config.toml
+# 路径: ~/.config/wallow/config.toml
+
+[common]
+# 壁纸保存的根目录 (支持相对路径或绝对路径)
+wallpaper_dir = "wallpapers"
+
+# 定时任务 (schedule) 下载的壁纸存放目录
+schedule_dir = "wallpapers/schedule"
+
+[common.search]
+# 默认搜索关键词 (None 表示不限)
+# query = "nature"
+
+# 默认分辨率
+resolution = "3840x2160"
+
+# 默认分类 (General/Anime/People)，1开启 0关闭
+categories = "111"
+
+# 默认纯净度 (SFW/Sketchy/NSFW)，1开启 0关闭
+# 注意: 访问 NSFW 内容必须配置下面的 api_key
+purity = "100"
+
+# 默认排序方式 (date_added, relevance, random, views, favorites, toplist)
+sorting = "random"
+
+[source.wallhaven]
+# Wallhaven API Key (可选)
+# 你可以在这里设置，也可以通过环境变量 WALLHAVEN_API_KEY 设置
+# api_key = "your_api_key_here"
