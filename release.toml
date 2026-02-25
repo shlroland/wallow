@@ -1,0 +1,23 @@
+# release.toml
+
+# 禁用发布到 crates.io，因为我们是通过 GitHub Release 分发二进制文件
+publish = false
+
+# 在发布前自动更新 Cargo.lock，确保版本号在 lock 文件中也是最新的
+shared-version = true
+
+# 配置发布时的 Git 提交信息
+[pre-release-commit]
+# {{version}} 是一个占位符，会被实际的新版本号替换
+message = "chore: release wallow v{{version}}"
+
+# 配置 Git 标签 (Tag)
+[tag]
+# 标签名称，例如 v0.1.1
+name = "v{{version}}"
+# 标签注释信息
+message = "wallow release v{{version}}"
+
+# 禁用推送，因为我们可能想在本地检查一下，或者让用户手动执行 push --tags
+# 但为了极致自动化，通常建议设置为 true。这里为了安全暂设为 true，符合一键发布的直觉。
+push = true
