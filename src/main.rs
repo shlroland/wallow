@@ -128,6 +128,9 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         Commands::Config { action } => {
             handle_config(&mut config, action)?;
         }
+        Commands::Apply { image } => {
+            handle_apply(image)?;
+        }
         Commands::Clean => {
             handle_clean(&config)?;
         }
@@ -237,7 +240,6 @@ fn handle_convert(
     let original_filename = input_path.file_name().and_then(|n| n.to_str()).unwrap_or("image.jpg");
     
     // 生成带主题前缀的文件名
-    // 如果原名是 wallow-wallhaven-xxx.jpg，改为 wallow-catppuccin-wallhaven-xxx.jpg
     let new_filename = if original_filename.starts_with("wallow-") {
         format!("wallow-{}-{}", theme, &original_filename[7..])
     } else {
@@ -398,5 +400,18 @@ fn handle_config(
             println!("{}", t!("config_updated", key => key, value => value));
         }
     }
+    Ok(())
+}
+
+/// 处理 apply 子命令：将本地文件设为壁纸
+fn handle_apply(image: &str) -> Result<(), Box<dyn std::error::Error>> {
+    let path = std::path::PathBuf::from(image);
+    if !path.exists() {
+        return Err(format!("文件不存在: {}", image).into());
+    }
+
+    println!("{}", t!("setting_wallpaper"));
+    setter::set_from_path(&path)?;
+    println!("{}", t!("set_done"));
     Ok(())
 }
