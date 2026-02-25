@@ -6,7 +6,6 @@
   "properties": {
     "common": {
       "default": {
-        "schedule_dir": null,
         "search": {
           "categories": "111",
           "purity": "100",
@@ -39,13 +38,6 @@
     "CommonConfig": {
       "type": "object",
       "properties": {
-        "schedule_dir": {
-          "description": "定时任务壁纸保存目录",
-          "type": [
-            "string",
-            "null"
-          ]
-        },
         "search": {
           "description": "默认搜索参数",
           "default": {
@@ -62,7 +54,7 @@
           ]
         },
         "wallpaper_dir": {
-          "description": "壁纸保存根目录",
+          "description": "壁纸保存根目录 (支持绝对路径，相对路径则相对于 $HOME)",
           "type": [
             "string",
             "null"

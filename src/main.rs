@@ -20,17 +20,9 @@ use source::{SearchOptions, WallpaperSource};
 use wallhaven::WallhavenClient; // 引入 Wallhaven API 客户端
 
 /// `#[tokio::main]` 宏将 async main 转换为同步 main + tokio 运行时
-/// 等价于：
-/// ```rust
-/// fn main() {
-///     tokio::runtime::Runtime::new().unwrap().block_on(async { ... })
-/// }
-/// ```
-/// 这是 tokio 异步运行时的 standard 入口写法
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
     // 自动检测系统语言并设置
-    // rust-i18n 默认会读取 LANG 环境变量，但我们可以显式设置以防万一
     let locale = std::env::var("LANG").unwrap_or_else(|_| "en".to_string());
     if locale.starts_with("zh") {
         rust_i18n::set_locale("zh-CN");
@@ -39,23 +31,16 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     }
 
     // 解析命令行参数
-    // Cli::parse() 由 #[derive(Parser)] 自动生成
-    // 如果参数不合法，clap 会自动打印错误信息并退出
     let cli = Cli::parse();
 
     // 创建应用配置（读取环境变量、设置路径）
     let mut config = AppConfig::new();
 
     // 确保壁纸目录存在
-    // ? 操作符：如果 ensure_dirs() 返回 Err，main 函数立即返回该错误
     config.ensure_dirs()?;
 
     // 根据子命令分发执行逻辑
-    // match 是 Rust 的模式匹配，必须穷尽所有变体（exhaustive）
-    // &cli.command 借用命令枚举，避免移动（Move）所有权
     match &cli.command {
-        // 解构 Fetch 变体，提取所有字段
-        // ref 关键字：借用字段值而非移动，因为外层已经是 & 借用
         Commands::Fetch {
             query,
             resolution,
@@ -76,7 +61,6 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             .await?;
         }
 
-        // 解构 Convert 变体
         Commands::Convert {
             image,
             theme,
@@ -86,7 +70,6 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             handle_convert(&config, image, theme, output.as_deref())?;
         }
 
-        // Themes 变体没有字段，直接匹配
         Commands::Themes => {
             gowall::check_installed()?;
             handle_themes()?;
@@ -105,7 +88,6 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             );
         }
 
-        // 解构 Run 变体（一键完成：下载 + 转换）
         Commands::Run {
             query,
             theme,
@@ -118,7 +100,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             handle_run(
                 &config,
                 query.as_deref(),
-                Some(theme), // 将 &String 转为 Option<&str>
+                Some(theme),
                 resolution.as_deref(),
                 categories.as_deref(),
                 purity.as_deref(),
@@ -128,19 +110,17 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         }
 
         Commands::Set { query, theme } => {
-            // 1. 下载并转换（如果指定了主题）
             let image_path = handle_run(
                 &config,
                 query.as_deref(),
                 theme.as_deref(),
-                None, // 使用配置默认值
+                None,
                 None,
                 None,
                 None,
             )
             .await?;
 
-            // 2. 设置壁纸
             println!("{}", t!("setting_wallpaper"));
             setter::set_from_path(&image_path)?;
             println!("{}", t!("set_done"));
@@ -161,7 +141,6 @@ fn handle_clean(config: &AppConfig) -> Result<(), Box<dyn std::error::Error>> {
     let dirs = vec![
         &config.wallpaper_dir,
         &config.converted_dir,
-        &config.schedule_dir,
     ];
 
     let mut deleted_count = 0;
@@ -203,12 +182,10 @@ async fn handle_fetch(
     sorting: Option<&str>,
     count: usize,
 ) -> Result<(), Box<dyn std::error::Error>> {
-    // 创建 Wallhaven 客户端
     let client = WallhavenClient::new(config.api_key.clone());
 
     println!("{}", t!("search_start"));
 
-    // 合并配置优先级：命令行参数 > 配置文件默认值
     let options = SearchOptions {
         query: query.or(config.search_defaults.query.as_deref()),
         resolution: resolution.unwrap_or(&config.search_defaults.resolution),
@@ -240,7 +217,6 @@ async fn handle_fetch(
         );
 
         let save_path = client.download(wallpaper, &config.wallpaper_dir).await?;
-
         println!("{}", t!("save_path", path => save_path.display()));
     }
 
@@ -254,32 +230,42 @@ fn handle_convert(
     image: &str,
     theme: &str,
     output: Option<&str>,
-) -> Result<(), Box<dyn std::error::Error>> {
+) -> Result<std::path::PathBuf, Box<dyn std::error::Error>> {
     println!("{}", t!("convert_start", image => image, theme => theme));
 
-    // 确定输出路径
-    let output_path = output
-        .map(|o| o.to_string())
-        .unwrap_or_else(|| config.converted_dir.display().to_string());
+    let input_path = std::path::Path::new(image);
+    let original_filename = input_path.file_name().and_then(|n| n.to_str()).unwrap_or("image.jpg");
+    
+    // 生成带主题前缀的文件名
+    // 如果原名是 wallow-wallhaven-xxx.jpg，改为 wallow-catppuccin-wallhaven-xxx.jpg
+    let new_filename = if original_filename.starts_with("wallow-") {
+        format!("wallow-{}-{}", theme, &original_filename[7..])
+    } else {
+        format!("wallow-{}-{}", theme, original_filename)
+    };
 
-    // 调用 gowall convert
-    gowall::convert(image, theme, Some(output_path.as_str()))?;
+    // 确定输出完整路径
+    let output_file_path = if let Some(out) = output {
+        let p = std::path::PathBuf::from(out);
+        if p.is_dir() { p.join(new_filename) } else { p }
+    } else {
+        config.converted_dir.join(new_filename)
+    };
 
-    println!("{}", t!("convert_done", path => output_path));
-    Ok(())
+    gowall::convert(image, theme, Some(output_file_path.to_str().unwrap()))?;
+
+    println!("{}", t!("convert_done", path => output_file_path.display()));
+    Ok(output_file_path)
 }
 
 /// 处理 themes 子命令：列出所有可用主题
 fn handle_themes() -> Result<(), Box<dyn std::error::Error>> {
     let themes = gowall::list_themes()?;
-
     println!("{}", t!("themes_title", count => themes.len()));
     println!("{}", "-".repeat(30));
-
     for theme in themes.iter() {
         println!("  {}", theme);
     }
-
     Ok(())
 }
 
@@ -306,7 +292,6 @@ async fn handle_run(
     };
 
     let wallpapers = client.search(options).await?;
-
     let wallpaper = wallpapers.first().ok_or(t!("error_no_wallpapers"))?;
 
     println!(
@@ -323,21 +308,9 @@ async fn handle_run(
     let save_path = client.download(wallpaper, &config.wallpaper_dir).await?;
     println!("{}", t!("save_path", path => save_path.display()));
 
-    // 转换主题（如果指定了主题）
     if let Some(theme_name) = theme {
-        println!(
-            "{}",
-            t!("convert_start", image => save_path.display(), theme => theme_name)
-        );
-
         let image_str = save_path.to_str().ok_or(t!("error_utf8"))?;
-        let output_dir = config.converted_dir.display().to_string();
-        gowall::convert(image_str, theme_name, Some(output_dir.as_str()))?;
-
-        // 转换后的路径逻辑
-        let file_name = save_path.file_name().ok_or("无法获取文件名")?;
-        let converted_path = config.converted_dir.join(file_name);
-
+        let converted_path = handle_convert(config, image_str, theme_name, None)?;
         println!("{}", t!("all_done", theme => theme_name));
         Ok(converted_path)
     } else {
@@ -351,13 +324,12 @@ async fn handle_schedule(config: &AppConfig) -> Result<(), Box<dyn std::error::E
 
     println!("{}", t!("search_start"));
 
-    // 使用配置中的默认参数进行随机搜索
     let options = SearchOptions {
         query: config.search_defaults.query.as_deref(),
         resolution: &config.search_defaults.resolution,
         categories: &config.search_defaults.categories,
         purity: &config.search_defaults.purity,
-        sorting: "random", // 定时任务强制使用随机以获得新鲜感
+        sorting: "random",
     };
 
     let wallpapers = client.search(options).await?;
@@ -374,14 +346,11 @@ async fn handle_schedule(config: &AppConfig) -> Result<(), Box<dyn std::error::E
         )
     );
 
-    // 保存到指定的定时任务目录
-    let save_path = client.download(wallpaper, &config.schedule_dir).await?;
+    let save_path = client.download(wallpaper, &config.wallpaper_dir).await?;
     println!("{}", t!("save_path", path => save_path.display()));
 
-    // 获取当前程序的绝对路径用于指引
     let bin_path = std::env::current_exe()?;
     let bin_str = bin_path.to_string_lossy();
-
     println!("{}", t!("schedule_tip", bin_path => bin_str));
 
     Ok(())
