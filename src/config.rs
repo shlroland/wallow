@@ -185,4 +185,29 @@ impl AppConfig {
         let schema = schemars::schema_for!(ConfigFile);
         serde_json::to_string_pretty(&schema).unwrap()
     }
+
+    /// 将当前配置转换为 TOML 字符串
+    pub fn to_toml(&self) -> String {
+        let config_file = ConfigFile {
+            common: CommonConfig {
+                wallpaper_dir: Some(self.wallpaper_dir.to_string_lossy().to_string()),
+                schedule_dir: Some(self.schedule_dir.to_string_lossy().to_string()),
+                search: SearchDefaults {
+                    query: self.search_defaults.query.clone(),
+                    resolution: self.search_defaults.resolution.clone(),
+                    categories: self.search_defaults.categories.clone(),
+                    purity: self.search_defaults.purity.clone(),
+                    sorting: self.search_defaults.sorting.clone(),
+                },
+            },
+            source: SourceConfigs {
+                wallhaven: WallhavenConfig {
+                    api_key: self.api_key.clone(),
+                },
+            },
+        };
+
+        toml::to_string_pretty(&config_file)
+            .unwrap_or_else(|_| "# Error serializing config".to_string())
+    }
 }

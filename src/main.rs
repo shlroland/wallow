@@ -26,7 +26,7 @@ use wallhaven::WallhavenClient; // 引入 Wallhaven API 客户端
 ///     tokio::runtime::Runtime::new().unwrap().block_on(async { ... })
 /// }
 /// ```
-/// 这是 tokio 异步运行时的标准入口写法
+/// 这是 tokio 异步运行时的 standard 入口写法
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
     // 自动检测系统语言并设置
@@ -399,6 +399,9 @@ fn handle_config(
         }
         cli::ConfigAction::Schema => {
             println!("{}", AppConfig::get_schema());
+        }
+        cli::ConfigAction::Dump => {
+            println!("{}", config.to_toml());
         }
         cli::ConfigAction::Set { key, value } => {
             match key.as_str() {
