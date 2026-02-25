@@ -1,13 +1,14 @@
 // config.rs — 配置管理模块
 // 遵循 Unix 风格：优先从 ~/.config/wallow/config.toml 读取配置
 
+use schemars::JsonSchema; // 引入用于生成 JSON Schema 的 trait
 use serde::{Deserialize, Serialize}; // 引入序列化与反序列化 trait
 use std::env; // 环境变量模块
 use std::fs; // 文件系统模块
 use std::path::{Path, PathBuf}; // 路径处理类型
 
 /// 映射 config.toml 文件内容的嵌套结构体
-#[derive(Debug, Deserialize, Serialize, Default)]
+#[derive(Debug, Deserialize, Serialize, Default, JsonSchema)]
 struct ConfigFile {
     #[serde(default)]
     common: CommonConfig,
@@ -15,7 +16,7 @@ struct ConfigFile {
     source: SourceConfigs,
 }
 
-#[derive(Debug, Deserialize, Serialize, Default)]
+#[derive(Debug, Deserialize, Serialize, Default, JsonSchema)]
 struct CommonConfig {
     /// 壁纸保存根目录
     wallpaper_dir: Option<String>,
@@ -26,7 +27,7 @@ struct CommonConfig {
     search: SearchDefaults,
 }
 
-#[derive(Debug, Deserialize, Serialize)]
+#[derive(Debug, Deserialize, Serialize, JsonSchema)]
 pub struct SearchDefaults {
     /// 默认搜索关键词
     #[serde(default)]
@@ -66,13 +67,13 @@ fn default_sorting() -> String {
     "random".to_string()
 }
 
-#[derive(Debug, Deserialize, Serialize, Default)]
+#[derive(Debug, Deserialize, Serialize, Default, JsonSchema)]
 struct SourceConfigs {
     #[serde(default)]
     wallhaven: WallhavenConfig,
 }
 
-#[derive(Debug, Deserialize, Serialize, Default)]
+#[derive(Debug, Deserialize, Serialize, Default, JsonSchema)]
 struct WallhavenConfig {
     api_key: Option<String>,
 }
@@ -177,5 +178,11 @@ impl AppConfig {
         let toml_str = toml::to_string_pretty(&config_file)
             .map_err(|e| std::io::Error::new(std::io::ErrorKind::Other, e))?;
         fs::write(&self.config_path, toml_str)
+    }
+
+    /// 获取配置文件的 JSON Schema
+    pub fn get_schema() -> String {
+        let schema = schemars::schema_for!(ConfigFile);
+        serde_json::to_string_pretty(&schema).unwrap()
     }
 }

@@ -139,7 +139,11 @@ pub enum Commands {
 #[derive(Subcommand)]
 pub enum ConfigAction {
     /// 查看当前所有配置
+    /// 查看当前所有配置
     Show,
+    /// 生成配置文件对应的 JSON Schema
+    Schema,
+    /// 设置配置项的值项 (支持: query, resolution, sorting)
     /// 设置配置项的值项 (支持: query, resolution, sorting)
     Set {
         /// 要设置的键 (query, res, sorting)

@@ -1,0 +1,129 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "ConfigFile",
+  "description": "映射 config.toml 文件内容的嵌套结构体",
+  "type": "object",
+  "properties": {
+    "common": {
+      "default": {
+        "schedule_dir": null,
+        "search": {
+          "categories": "111",
+          "purity": "100",
+          "query": null,
+          "resolution": "3840x2160",
+          "sorting": "random"
+        },
+        "wallpaper_dir": null
+      },
+      "allOf": [
+        {
+          "$ref": "#/definitions/CommonConfig"
+        }
+      ]
+    },
+    "source": {
+      "default": {
+        "wallhaven": {
+          "api_key": null
+        }
+      },
+      "allOf": [
+        {
+          "$ref": "#/definitions/SourceConfigs"
+        }
+      ]
+    }
+  },
+  "definitions": {
+    "CommonConfig": {
+      "type": "object",
+      "properties": {
+        "schedule_dir": {
+          "description": "定时任务壁纸保存目录",
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "search": {
+          "description": "默认搜索参数",
+          "default": {
+            "categories": "111",
+            "purity": "100",
+            "query": null,
+            "resolution": "3840x2160",
+            "sorting": "random"
+          },
+          "allOf": [
+            {
+              "$ref": "#/definitions/SearchDefaults"
+            }
+          ]
+        },
+        "wallpaper_dir": {
+          "description": "壁纸保存根目录",
+          "type": [
+            "string",
+            "null"
+          ]
+        }
+      }
+    },
+    "SearchDefaults": {
+      "type": "object",
+      "properties": {
+        "categories": {
+          "default": "111",
+          "type": "string"
+        },
+        "purity": {
+          "default": "100",
+          "type": "string"
+        },
+        "query": {
+          "description": "默认搜索关键词",
+          "default": null,
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "resolution": {
+          "default": "3840x2160",
+          "type": "string"
+        },
+        "sorting": {
+          "default": "random",
+          "type": "string"
+        }
+      }
+    },
+    "SourceConfigs": {
+      "type": "object",
+      "properties": {
+        "wallhaven": {
+          "default": {
+            "api_key": null
+          },
+          "allOf": [
+            {
+              "$ref": "#/definitions/WallhavenConfig"
+            }
+          ]
+        }
+      }
+    },
+    "WallhavenConfig": {
+      "type": "object",
+      "properties": {
+        "api_key": {
+          "type": [
+            "string",
+            "null"
+          ]
+        }
+      }
+    }
+  }
+}

@@ -397,6 +397,9 @@ fn handle_config(
                 t!("config_sorting", sorting => config.search_defaults.sorting)
             );
         }
+        cli::ConfigAction::Schema => {
+            println!("{}", AppConfig::get_schema());
+        }
         cli::ConfigAction::Set { key, value } => {
             match key.as_str() {
                 "query" => config.search_defaults.query = Some(value.clone()),
