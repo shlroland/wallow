@@ -7,17 +7,11 @@ publish = false
 shared-version = true
 
 # 配置发布时的 Git 提交信息
-[pre-release-commit]
-# {{version}} 是一个占位符，会被实际的新版本号替换
-message = "chore: release wallow v{{version}}"
+pre-release-commit-message = "chore: release wallow v{{version}}"
 
 # 配置 Git 标签 (Tag)
-[tag]
-# 标签名称，例如 v0.1.1
-name = "v{{version}}"
-# 标签注释信息
-message = "wallow release v{{version}}"
+tag-name = "v{{version}}"
+tag-message = "wallow release v{{version}}"
 
-# 禁用推送，因为我们可能想在本地检查一下，或者让用户手动执行 push --tags
-# 但为了极致自动化，通常建议设置为 true。这里为了安全暂设为 true，符合一键发布的直觉。
+# 自动推送到远程仓库，触发 GitHub Actions
 push = true
