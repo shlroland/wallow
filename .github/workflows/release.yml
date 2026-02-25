@@ -5,6 +5,14 @@ on:
     tags:
       - 'v*'
 
+permissions:
+  contents: write
+
+jobs:
+  push:
+    tags:
+      - 'v*'
+
 jobs:
   build-and-upload:
     name: Build and upload for ${{ matrix.os }}
