@@ -49,6 +49,11 @@ wallow run --query "cyberpunk" --theme dracula
 
 # List all available gowall themes
 wallow themes
+
+# Manage configuration
+wallow config show
+wallow config set query "nature"
+wallow themes
 ```
 
 ### Automation (Schedule)
@@ -76,6 +81,7 @@ Create a config file at `~/.config/wallow/config.toml`:
 wallpaper_dir = "my_wallpapers"
 
 [common.search]
+query = "nature"
 resolution = "3840x2160"
 sorting = "random"
 

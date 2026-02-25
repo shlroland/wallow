@@ -129,4 +129,22 @@ pub enum Commands {
         #[arg(short, long)]
         sorting: Option<String>,
     },
+    /// 修改配置项的值 (例如: wallow config set query "anime")
+    Config {
+        #[command(subcommand)]
+        action: ConfigAction,
+    },
+}
+/// 配置管理操作
+#[derive(Subcommand)]
+pub enum ConfigAction {
+    /// 查看当前所有配置
+    Show,
+    /// 设置配置项的值项 (支持: query, resolution, sorting)
+    Set {
+        /// 要设置的键 (query, res, sorting)
+        key: String,
+        /// 要设置的值
+        value: String,
+    },
 }

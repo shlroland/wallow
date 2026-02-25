@@ -44,7 +44,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let cli = Cli::parse();
 
     // 创建应用配置（读取环境变量、设置路径）
-    let config = AppConfig::new();
+    let mut config = AppConfig::new();
 
     // 确保壁纸目录存在
     // ? 操作符：如果 ensure_dirs() 返回 Err，main 函数立即返回该错误
@@ -145,6 +145,9 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             setter::set_from_path(&image_path)?;
             println!("{}", t!("set_done"));
         }
+        Commands::Config { action } => {
+            handle_config(&mut config, action)?;
+        }
     }
 
     Ok(())
@@ -179,7 +182,7 @@ async fn handle_fetch(
 
     // 合并配置优先级：命令行参数 > 配置文件默认值
     let options = SearchOptions {
-        query,
+        query: query.or(config.search_defaults.query.as_deref()),
         resolution: resolution.unwrap_or(&config.search_defaults.resolution),
         categories: categories.unwrap_or(&config.search_defaults.categories),
         purity: purity.unwrap_or(&config.search_defaults.purity),
@@ -280,7 +283,7 @@ async fn handle_run(
     println!("{}", t!("search_start"));
 
     let options = SearchOptions {
-        query,
+        query: query.or(config.search_defaults.query.as_deref()),
         resolution: resolution.unwrap_or(&config.search_defaults.resolution),
         categories: categories.unwrap_or(&config.search_defaults.categories),
         purity: purity.unwrap_or(&config.search_defaults.purity),
@@ -335,7 +338,7 @@ async fn handle_schedule(config: &AppConfig) -> Result<(), Box<dyn std::error::E
 
     // 使用配置中的默认参数进行随机搜索
     let options = SearchOptions {
-        query: None,
+        query: config.search_defaults.query.as_deref(),
         resolution: &config.search_defaults.resolution,
         categories: &config.search_defaults.categories,
         purity: &config.search_defaults.purity,
@@ -366,5 +369,44 @@ async fn handle_schedule(config: &AppConfig) -> Result<(), Box<dyn std::error::E
 
     println!("{}", t!("schedule_tip", bin_path => bin_str));
 
+    Ok(())
+}
+
+/// 处理 config 子命令：查看或修改配置
+fn handle_config(
+    config: &mut AppConfig,
+    action: &cli::ConfigAction,
+) -> Result<(), Box<dyn std::error::Error>> {
+    match action {
+        cli::ConfigAction::Show => {
+            println!("{}", t!("config_title"));
+            println!("{}", t!("config_path", path => config.config_path.display()));
+            println!(
+                "{}",
+                t!("config_wallpaper_dir", path => config.wallpaper_dir.display())
+            );
+            println!("{}", t!("config_search_defaults"));
+            let query_str = config.search_defaults.query.as_deref().unwrap_or("None");
+            println!("{}", t!("config_query", query => query_str));
+            println!(
+                "{}",
+                t!("config_res", res => config.search_defaults.resolution)
+            );
+            println!(
+                "{}",
+                t!("config_sorting", sorting => config.search_defaults.sorting)
+            );
+        }
+        cli::ConfigAction::Set { key, value } => {
+            match key.as_str() {
+                "query" => config.search_defaults.query = Some(value.clone()),
+                "res" | "resolution" => config.search_defaults.resolution = value.clone(),
+                "sorting" => config.search_defaults.sorting = value.clone(),
+                _ => return Err(t!("config_error_unknown_key", key => key).into()),
+            }
+            config.save()?;
+            println!("{}", t!("config_updated", key => key, value => value));
+        }
+    }
     Ok(())
 }

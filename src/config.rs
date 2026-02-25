@@ -1,13 +1,13 @@
 // config.rs — 配置管理模块
 // 遵循 Unix 风格：优先从 ~/.config/wallow/config.toml 读取配置
 
-use serde::Deserialize; // 引入反序列化 trait，用于解析 TOML
+use serde::{Deserialize, Serialize}; // 引入序列化与反序列化 trait
 use std::env; // 环境变量模块
 use std::fs; // 文件系统模块
 use std::path::{Path, PathBuf}; // 路径处理类型
 
 /// 映射 config.toml 文件内容的嵌套结构体
-#[derive(Debug, Deserialize, Default)]
+#[derive(Debug, Deserialize, Serialize, Default)]
 struct ConfigFile {
     #[serde(default)]
     common: CommonConfig,
@@ -15,7 +15,7 @@ struct ConfigFile {
     source: SourceConfigs,
 }
 
-#[derive(Debug, Deserialize, Default)]
+#[derive(Debug, Deserialize, Serialize, Default)]
 struct CommonConfig {
     /// 壁纸保存根目录
     wallpaper_dir: Option<String>,
@@ -26,8 +26,11 @@ struct CommonConfig {
     search: SearchDefaults,
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Deserialize, Serialize)]
 pub struct SearchDefaults {
+    /// 默认搜索关键词
+    #[serde(default)]
+    pub query: Option<String>,
     #[serde(default = "default_resolution")]
     pub resolution: String,
     #[serde(default = "default_categories")]
@@ -41,6 +44,7 @@ pub struct SearchDefaults {
 impl Default for SearchDefaults {
     fn default() -> Self {
         Self {
+            query: None,
             resolution: default_resolution(),
             categories: default_categories(),
             purity: default_purity(),
@@ -62,13 +66,13 @@ fn default_sorting() -> String {
     "random".to_string()
 }
 
-#[derive(Debug, Deserialize, Default)]
+#[derive(Debug, Deserialize, Serialize, Default)]
 struct SourceConfigs {
     #[serde(default)]
     wallhaven: WallhavenConfig,
 }
 
-#[derive(Debug, Deserialize, Default)]
+#[derive(Debug, Deserialize, Serialize, Default)]
 struct WallhavenConfig {
     api_key: Option<String>,
 }
@@ -147,5 +151,31 @@ impl AppConfig {
         fs::create_dir_all(&self.schedule_dir)?;
 
         Ok(())
+    }
+
+    /// 将配置保存回文件
+    pub fn save(&self) -> std::io::Result<()> {
+        let config_file = ConfigFile {
+            common: CommonConfig {
+                wallpaper_dir: Some(self.wallpaper_dir.to_string_lossy().to_string()),
+                schedule_dir: Some(self.schedule_dir.to_string_lossy().to_string()),
+                search: SearchDefaults {
+                    query: self.search_defaults.query.clone(),
+                    resolution: self.search_defaults.resolution.clone(),
+                    categories: self.search_defaults.categories.clone(),
+                    purity: self.search_defaults.purity.clone(),
+                    sorting: self.search_defaults.sorting.clone(),
+                },
+            },
+            source: SourceConfigs {
+                wallhaven: WallhavenConfig {
+                    api_key: self.api_key.clone(),
+                },
+            },
+        };
+
+        let toml_str = toml::to_string_pretty(&config_file)
+            .map_err(|e| std::io::Error::new(std::io::ErrorKind::Other, e))?;
+        fs::write(&self.config_path, toml_str)
     }
 }

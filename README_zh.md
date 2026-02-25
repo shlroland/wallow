@@ -46,6 +46,11 @@ wallow run --query "cyberpunk" --theme dracula
 
 # 列出所有可用的 gowall 主题
 wallow themes
+
+# 管理配置项
+wallow config show
+wallow config set query "nature"
+wallow themes
 ```
 
 ### 自动化 (Schedule)
@@ -73,6 +78,7 @@ wallow completions zsh > ~/.zsh/completions/_wallow
 wallpaper_dir = "my_wallpapers"  # 壁纸保存目录
 
 [common.search]
+query = "nature"            # 默认搜索关键词
 resolution = "3840x2160"        # 默认分辨率
 sorting = "random"              # 默认排序
 
