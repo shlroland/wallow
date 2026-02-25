@@ -18,15 +18,27 @@
 
 ## 🚀 Installation
 
-### Prerequisites
+### One-line Install (Recommended)
+
+Requires `curl` and `bash`. This script will download the latest pre-built binary for your system (macOS/Linux) and install it to `~/.local/bin`.
+
+```bash
+curl -sSL https://raw.githubusercontent.com/shlroland/wallow/master/install.sh | bash
+```
+
+### Build from source
+
+If you have Rust installed and prefer building from source:
+
+#### Prerequisites
 
 - **gowall**: Required for theme conversion. [Install gowall](https://github.com/Achno/gowall).
 - **Rust**: To compile from source.
 
-### Build from source
+#### Build
 
 ```bash
-git clone https://github.com/your-username/wallow.git
+git clone https://github.com/shlroland/wallow.git
 cd wallow
 cargo build --release
 ```
@@ -53,7 +65,7 @@ wallow themes
 # Manage configuration
 wallow config show
 wallow config set query "nature"
-wallow themes
+wallow config dump
 ```
 
 ### Automation (Schedule)
@@ -70,6 +82,9 @@ wallow schedule
 ```bash
 # For Zsh
 wallow completions zsh > ~/.zsh/completions/_wallow
+
+# For Fish
+wallow completions fish > ~/.config/fish/completions/wallow.fish
 ```
 
 ## ⚙️ Configuration
@@ -77,6 +92,8 @@ wallow completions zsh > ~/.zsh/completions/_wallow
 Create a config file at `~/.config/wallow/config.toml`:
 
 ```toml
+#:schema https://raw.githubusercontent.com/shlroland/wallow/master/wallow.schema.json
+
 [common]
 wallpaper_dir = "my_wallpapers"
 

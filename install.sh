@@ -74,7 +74,7 @@ else
 fi
 
 # 5. 安装二进制文件
-BIN_PATH="$HOME/.cargo/bin"
+BIN_PATH="$HOME/.local/bin"
 echo -e "${BLUE}步骤 5: 正在安装二进制文件到 $BIN_PATH...${NC}"
 mkdir -p "$BIN_PATH"
 mv "$TMP_DIR/wallow" "$BIN_PATH/"
@@ -83,9 +83,16 @@ chmod +x "$BIN_PATH/wallow"
 # 清理临时目录
 rm -rf "$TMP_DIR"
 
-# 6. 提示自动补全
+# 6. 检查 PATH 并提示
 echo -e "\n${GREEN}安装完成！${NC}"
 echo -e "--------------------------------------------------"
+
+if [[ ":$PATH:" != *":$BIN_PATH:"* ]]; then
+    echo -e "${RED}警告: $BIN_PATH 不在你的 PATH 环境变量中。${NC}"
+    echo -e "你需要将以下行添加到你的 Shell 配置文件（如 ~/.bashrc 或 ~/.zshrc）中："
+    echo -e "${BLUE}export PATH=\"\$HOME/.local/bin:\$PATH\"${NC}\n"
+fi
+
 echo -e "你可以通过运行 ${BLUE}wallow --version${NC} 来验证安装。"
 echo -e ""
 echo -e "提示：为了获得更好的体验，建议配置 Shell 自动补全："

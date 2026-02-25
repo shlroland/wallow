@@ -15,15 +15,27 @@
 
 ## 🚀 安装
 
-### 前提条件
+### 一键安装 (推荐)
+
+只需要 `curl` 和 `bash`。该脚本将自动下载适用于你系统（macOS/Linux）的最新预编译二进制文件，并安装到 `~/.local/bin`。
+
+```bash
+curl -sSL https://raw.githubusercontent.com/shlroland/wallow/master/install.sh | bash
+```
+
+### 源码编译
+
+如果你已安装 Rust，也可以选择从源码编译：
+
+#### 前提条件
 
 - **gowall**: 用于主题转换。 [安装 gowall](https://github.com/Achno/gowall)。
 - **Rust**: 用于从源码编译。
 
-### 源码编译
+#### 编译步骤
 
 ```bash
-git clone https://github.com/your-username/wallow.git
+git clone https://github.com/shlroland/wallow.git
 cd wallow
 cargo build --release
 ```
@@ -50,7 +62,7 @@ wallow themes
 # 管理配置项
 wallow config show
 wallow config set query "nature"
-wallow themes
+wallow config dump
 ```
 
 ### 自动化 (Schedule)
@@ -67,6 +79,9 @@ wallow schedule
 ```bash
 # Zsh 用户
 wallow completions zsh > ~/.zsh/completions/_wallow
+
+# Fish 用户
+wallow completions fish > ~/.config/fish/completions/wallow.fish
 ```
 
 ## ⚙️ 配置
@@ -74,6 +89,8 @@ wallow completions zsh > ~/.zsh/completions/_wallow
 在 `~/.config/wallow/config.toml` 创建配置文件：
 
 ```toml
+#:schema https://raw.githubusercontent.com/shlroland/wallow/master/wallow.schema.json
+
 [common]
 wallpaper_dir = "my_wallpapers"  # 壁纸保存目录
 
