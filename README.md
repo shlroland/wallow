@@ -120,11 +120,12 @@ Create a config file at `~/.config/wallow/config.toml`:
 ```toml
 #:schema https://raw.githubusercontent.com/shlroland/wallow/master/wallow.schema.json
 [common]
-wallpaper_dir = "my_wallpapers"
+wallpaper_dir = "~/Pictures/wallow"  # Supports ~, $HOME, ${HOME}
 # Output directories for converted wallpapers (supports multiple)
+# Paths support ~, $HOME, ${HOME} expansion
 converted_dirs = [
-  "Pictures/wallow/converted",
-  ".config/wezterm/backgrounds",
+  "~/Pictures/wallow/converted",
+  "$HOME/.config/wezterm/backgrounds",
 ]
 # Default source: wallhaven (default) or unsplash
 source = "wallhaven"
@@ -143,6 +144,11 @@ access_key = "your_unsplash_access_key_here"
 # Example: every day at 08:00
 cron = "0 8 * * *"
 ```
+
+**Path Expansion:** `wallpaper_dir` and `converted_dirs` support the following:
+- `~` — expands to `$HOME`
+- `$HOME`, `${HOME}` — environment variables
+- Relative paths — resolved relative to `$HOME`
 
 ## 🖼️ Wallpaper Sources
 

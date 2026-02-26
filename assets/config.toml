@@ -5,17 +5,19 @@
 
 [common]
 # 壁纸保存的根目录
-# 支持绝对路径，相对路径则相对于 $HOME (家目录)
-# 默认值: "Pictures/wallow"
+# 支持 ~、$HOME、${HOME} 等环境变量展开
+# 相对路径则相对于 $HOME (家目录)
+# 默认值: "$HOME/Pictures/wallow"
 # wallpaper_dir = "Pictures/wallow"
 
 # 转换后壁纸的输出目录列表，支持多个目录
+# 支持 ~、$HOME、${HOME} 等环境变量展开
+# 相对路径则相对于 $HOME
 # 不配置则默认为 wallpaper_dir/converted
-# 支持绝对路径，相对路径则相对于 $HOME
 # 示例: 同时输出到壁纸目录和 WezTerm 背景图目录
 # converted_dirs = [
-#   "Pictures/wallow/converted",
-#   ".config/wezterm/backgrounds",
+#   "~/Pictures/wallow/converted",
+#   "$HOME/.config/wezterm/backgrounds",
 # ]
 
 # 默认壁纸来源 (wallhaven / unsplash)
