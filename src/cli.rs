@@ -148,6 +148,17 @@ pub enum Commands {
         action: ConfigAction,
     },
 
+    /// 列出已下载的壁纸图片
+    ///
+    /// 用法示例:
+    ///   wallow list
+    ///   wallow list --fzf
+    List {
+        /// 使用 fzf 进行交互式选择与预览
+        #[arg(short = 'F', long)]
+        fzf: bool,
+    },
+
     /// 将本地指定的图片设置为系统壁纸
     ///
     /// 用法示例:
