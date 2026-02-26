@@ -3,13 +3,13 @@
 [![Language](https://img.shields.io/badge/language-Rust-orange.svg)](https://www.rust-lang.org/)
 [![License](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 
-**Wallow** is a modern CLI tool written in Rust designed for wallpaper enthusiasts. It allows you to search and download high-quality wallpapers from Wallhaven and automatically apply aesthetic color themes using `gowall`.
+**Wallow** is a modern CLI tool written in Rust designed for wallpaper enthusiasts. It allows you to search and download high-quality wallpapers from **Wallhaven** or **Unsplash**, and automatically apply aesthetic color themes using `gowall`.
 
 [中文文档 (Chinese Documentation)](README_zh.md)
 
 ## ✨ Features
 
-- 🔍 **Search & Fetch**: Powerful search interface for Wallhaven API.
+- 🔍 **Search & Fetch**: Powerful search interface supporting multiple sources — **Wallhaven** and **Unsplash**.
 - 🎨 **Theme Conversion**: Seamless integration with `gowall` to apply themes like Catppuccin, Dracula, Nord, and more.
 - 📅 **Schedule**: Built-in support for daily wallpaper automation with `crontab` integration.
 - 🖼️ **Interactive Preview**: Integration with `fzf` for interactive wallpaper selection with image previews. Supports WezTerm (`chafa` + iTerm2 protocol), Kitty, iTerm2, and any terminal with `chafa` installed.
@@ -124,6 +124,9 @@ Create a config file at `~/.config/wallow/config.toml`:
 
 [common]
 wallpaper_dir = "my_wallpapers"
+# Default wallpaper source: wallhaven (default) or unsplash
+# Can be overridden per-command with --source
+source = "wallhaven"
 
 [common.search]
 query = "nature"
@@ -133,10 +136,47 @@ sorting = "random"
 [source.wallhaven]
 api_key = "your_wallhaven_api_key_here"
 
+[source.unsplash]
+access_key = "your_unsplash_access_key_here"
+
 [schedule]
 # Cron expression for the scheduled wallpaper job
 # Example: every day at 08:00
 cron = "0 8 * * *"
+```
+
+## 🖼️ Wallpaper Sources
+
+Wallow supports multiple wallpaper sources. Use `--source` to switch per-command, or set a default in `config.toml`.
+
+### Wallhaven
+
+The default source. Supports advanced filtering by resolution, category, and purity.
+
+| Config | Description |
+|--------|-------------|
+| `[source.wallhaven]` `api_key` | Optional. Required for NSFW content. Get yours at [wallhaven.cc/settings/account](https://wallhaven.cc/settings/account). |
+| `WALLHAVEN_API_KEY` env var | Alternative to config file. |
+
+```bash
+wallow fetch --query "nature" --count 3
+wallow fetch --query "anime" --source wallhaven
+```
+
+### Unsplash
+
+High-quality photos from [unsplash.com](https://unsplash.com). Requires a free Access Key.
+
+| Config | Description |
+|--------|-------------|
+| `[source.unsplash]` `access_key` | **Required.** Register at [unsplash.com/developers](https://unsplash.com/developers) to get one. |
+| `UNSPLASH_ACCESS_KEY` env var | Alternative to config file. |
+
+> **Note**: Demo apps are limited to 50 requests/hour. Apply for production access for 5000 requests/hour.
+
+```bash
+wallow fetch --query "landscape" --source unsplash
+wallow run --query "cyberpunk" --theme dracula --source unsplash
 ```
 
 ## 📄 License
