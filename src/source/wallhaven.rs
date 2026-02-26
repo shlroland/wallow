@@ -1,7 +1,7 @@
 // wallhaven.rs — Wallhaven API 异步客户端模块
 // 负责与 Wallhaven API 交互：搜索壁纸和下载图片
 
-use crate::source::{SearchOptions, WallpaperInfo, WallpaperSource};
+use super::{SearchOptions, WallpaperInfo, WallpaperSource};
 use async_trait::async_trait;
 use serde::Deserialize; // 反序列化 trait，用于将 JSON 转为 Rust 结构体
 use std::path::{Path, PathBuf}; // 路径的不可变借用类型（Borrowed），用于函数参数

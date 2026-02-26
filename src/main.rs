@@ -8,7 +8,6 @@ mod config; // 声明 config 模块，对应 src/config.rs
 mod gowall; // 声明 gowall 模块，对应 src/gowall.rs
 mod setter;
 mod source;
-mod wallhaven; // 声明 wallhaven 模块，对应 src/wallhaven.rs
 
 // 初始化多语言支持，嵌入 locales 目录下的所有翻译
 rust_i18n::i18n!("locales");
@@ -19,7 +18,7 @@ use cli::{Cli, Commands}; // 引入 CLI 结构体和子命令枚举
 use config::AppConfig; // 引入应用配置
 use rust_i18n::t; // 引入翻译宏
 use source::{SearchOptions, WallpaperSource};
-use wallhaven::WallhavenClient; // 引入 Wallhaven API 客户端
+use source::wallhaven::WallhavenClient; // 引入 Wallhaven API 客户端
 
 /// `#[tokio::main]` 宏将 async main 转换为同步 main + tokio 运行时
 #[tokio::main]

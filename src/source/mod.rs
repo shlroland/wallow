@@ -1,3 +1,6 @@
+// source/mod.rs — 壁纸源模块入口
+pub mod wallhaven;
+
 // source.rs — 壁纸源抽象接口模块
 // 定义了所有壁纸站（如 Wallhaven）必须实现的通用 Trait
 
