@@ -9,6 +9,7 @@
 - 🔍 **搜索与下载**: 强大的 Wallhaven API 搜索接口。
 - 🎨 **主题转换**: 无缝集成 `gowall`，支持 Catppuccin, Dracula, Nord 等配色主题。
 - 📅 **定时任务**: 内置 `schedule` 子命令，轻松集成 `crontab` 实现每日自动换壁纸。
+- 🖼️ **交互式预览**: 集成 `fzf` 实现交互式壁纸选择，支持终端图片预览（WezTerm, Kitty 等）。
 - 🌍 **多语言支持**: 自动检测系统语言（目前支持中英文）。
 - ⚙️ **灵活配置**: 遵循 Unix 风格，通过 `~/.config/wallow/config.toml` 管理配置。
 - ⌨️ **命令补全**: 支持 Zsh, Fish, Bash 等多种 Shell 的自动补全。
@@ -56,13 +57,19 @@ wallow convert image.jpg --theme catppuccin
 # 一键完成：下载并应用主题
 wallow run --query "cyberpunk" --theme dracula
 
+# 列表查看与交互式预览 (需要安装 fzf)
+wallow list --fzf
+
+# 将本地图片设为系统壁纸
+wallow apply wallpapers/image.jpg
+
 # 列出所有可用的 gowall 主题
 wallow themes
 
 # 管理配置项
 wallow config show
-wallow config set query "nature"
 wallow config dump
+wallow config set query "nature"
 ```
 
 ### 自动化 (Schedule)

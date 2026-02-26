@@ -12,6 +12,7 @@
 - 🔍 **Search & Fetch**: Powerful search interface for Wallhaven API.
 - 🎨 **Theme Conversion**: Seamless integration with `gowall` to apply themes like Catppuccin, Dracula, Nord, and more.
 - 📅 **Schedule**: Built-in support for daily wallpaper automation with `crontab` integration.
+- 🖼️ **Interactive Preview**: Integration with `fzf` for interactive wallpaper selection with image previews (supports WezTerm, Kitty, etc.).
 - 🌍 **I18n**: Automatic language detection (Supports English and Chinese).
 - ⚙️ **Configurable**: Unix-style configuration via `~/.config/wallow/config.toml`.
 - ⌨️ **Auto-completion**: Support for Zsh, Fish, and Bash.
@@ -59,13 +60,19 @@ wallow convert image.jpg --theme catppuccin
 # One-click: Search, download, and apply theme
 wallow run --query "cyberpunk" --theme dracula
 
+# List and interactively preview wallpapers (requires fzf)
+wallow list --fzf
+
+# Set a local image as system wallpaper
+wallow apply wallpapers/image.jpg
+
 # List all available gowall themes
 wallow themes
 
 # Manage configuration
 wallow config show
-wallow config set query "nature"
 wallow config dump
+wallow config set query "nature"
 ```
 
 ### Automation (Schedule)
