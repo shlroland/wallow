@@ -22,6 +22,9 @@ struct ConfigFile {
 struct CommonConfig {
     /// 壁纸保存根目录 (支持绝对路径，相对路径则相对于 $HOME)
     wallpaper_dir: Option<String>,
+    /// 默认壁纸来源 (wallhaven / unsplash)，默认 wallhaven
+    #[serde(default = "default_source")]
+    source: String,
     /// 默认搜索参数
     #[serde(default)]
     search: SearchDefaults,
@@ -66,16 +69,26 @@ fn default_purity() -> String {
 fn default_sorting() -> String {
     "random".to_string()
 }
+fn default_source() -> String {
+    "wallhaven".to_string()
+}
 
 #[derive(Debug, Deserialize, Serialize, Default, JsonSchema)]
 struct SourceConfigs {
     #[serde(default)]
     wallhaven: WallhavenConfig,
+    #[serde(default)]
+    unsplash: UnsplashConfig,
 }
 
 #[derive(Debug, Deserialize, Serialize, Default, JsonSchema)]
 struct WallhavenConfig {
     api_key: Option<String>,
+}
+
+#[derive(Debug, Deserialize, Serialize, Default, JsonSchema)]
+struct UnsplashConfig {
+    access_key: Option<String>,
 }
 
 /// 定时任务配置
@@ -90,6 +103,10 @@ pub struct ScheduleConfig {
 pub struct AppConfig {
     /// Wallhaven API Key (优先级：ENV > TOML)
     pub api_key: Option<String>,
+    /// Unsplash Access Key (优先级：ENV > TOML)
+    pub unsplash_access_key: Option<String>,
+    /// 默认壁纸来源 (wallhaven / unsplash)
+    pub default_source: String,
     /// 壁纸保存根目录
     pub wallpaper_dir: PathBuf,
     /// 转换后壁纸的保存目录
@@ -117,6 +134,11 @@ impl AppConfig {
             .ok()
             .or(config_file.source.wallhaven.api_key);
 
+        // 优先级：环境变量 > 配置文件内容
+        let unsplash_access_key = env::var("UNSPLASH_ACCESS_KEY")
+            .ok()
+            .or(config_file.source.unsplash.access_key);
+
         // 壁纸目录：
         // 1. 如果配置了路径：如果是相对路径则相对于 $HOME，否则使用绝对路径
         // 2. 如果未配置：默认使用 $HOME/Pictures/wallow
@@ -135,6 +157,8 @@ impl AppConfig {
 
         Self {
             api_key,
+            unsplash_access_key,
+            default_source: if config_file.common.source.is_empty() { default_source() } else { config_file.common.source },
             wallpaper_dir,
             converted_dir,
             config_path,
@@ -167,6 +191,7 @@ impl AppConfig {
         let config_file = ConfigFile {
             common: CommonConfig {
                 wallpaper_dir: Some(self.wallpaper_dir.to_string_lossy().to_string()),
+                source: self.default_source.clone(),
                 search: SearchDefaults {
                     query: self.search_defaults.query.clone(),
                     resolution: self.search_defaults.resolution.clone(),
@@ -178,6 +203,9 @@ impl AppConfig {
             source: SourceConfigs {
                 wallhaven: WallhavenConfig {
                     api_key: self.api_key.clone(),
+                },
+                unsplash: UnsplashConfig {
+                    access_key: self.unsplash_access_key.clone(),
                 },
             },
             schedule: ScheduleConfig {
@@ -206,6 +234,7 @@ impl AppConfig {
         let config_file = ConfigFile {
             common: CommonConfig {
                 wallpaper_dir: Some(self.wallpaper_dir.to_string_lossy().to_string()),
+                source: self.default_source.clone(),
                 search: SearchDefaults {
                     query: self.search_defaults.query.clone(),
                     resolution: self.search_defaults.resolution.clone(),
@@ -218,13 +247,25 @@ impl AppConfig {
                 wallhaven: WallhavenConfig {
                     api_key: self.api_key.clone(),
                 },
+                unsplash: UnsplashConfig {
+                    access_key: self.unsplash_access_key.clone(),
+                },
             },
             schedule: ScheduleConfig {
                 cron: self.schedule.cron.clone(),
             },
         };
 
-        toml::to_string_pretty(&config_file)
-            .unwrap_or_else(|_| "# Error serializing config".to_string())
+        let toml_str = toml::to_string_pretty(&config_file)
+            .unwrap_or_else(|_| "# Error serializing config".to_string());
+
+        // 在 [source.unsplash] 节后追加注释说明
+        // toml 库不支持带注释序列化，所以手动插入
+        let toml_str = toml_str.replace(
+            "[source.unsplash]",
+            "# 壁纸来源配置\n# 可选来源: wallhaven (default), unsplash\n# 在 [common] 中设置 source = \"unsplash\" 可将 Unsplash 设为默认来源\n[source.unsplash]\n# access_key = \"your_unsplash_access_key_here\""
+        );
+
+        toml_str
     }
 }

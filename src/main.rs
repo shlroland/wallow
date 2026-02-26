@@ -18,7 +18,8 @@ use cli::{Cli, Commands}; // 引入 CLI 结构体和子命令枚举
 use config::AppConfig; // 引入应用配置
 use rust_i18n::t; // 引入翻译宏
 use source::{SearchOptions, WallpaperSource};
-use source::wallhaven::WallhavenClient; // 引入 Wallhaven API 客户端
+use source::wallhaven::WallhavenClient;
+use source::unsplash::UnsplashClient; // 引入 Unsplash API 客户端
 
 /// `#[tokio::main]` 宏将 async main 转换为同步 main + tokio 运行时
 #[tokio::main]
@@ -49,6 +50,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             purity,
             sorting,
             count,
+            source,
         } => {
             handle_fetch(
                 &config,
@@ -58,6 +60,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                 purity.as_deref(),
                 sorting.as_deref(),
                 *count,
+                source.as_deref().unwrap_or(&config.default_source),
             )
             .await?;
         }
@@ -96,6 +99,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             categories,
             purity,
             sorting,
+            source,
         } => {
             gowall::check_installed()?;
             handle_run(
@@ -106,11 +110,12 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                 categories.as_deref(),
                 purity.as_deref(),
                 sorting.as_deref(),
+                source.as_deref().unwrap_or(&config.default_source),
             )
             .await?;
         }
 
-        Commands::Set { query, theme } => {
+        Commands::Set { query, theme, source } => {
             let image_path = handle_run(
                 &config,
                 query.as_deref(),
@@ -119,6 +124,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                 None,
                 None,
                 None,
+                source.as_deref().unwrap_or(&config.default_source),
             )
             .await?;
 
@@ -362,9 +368,8 @@ async fn handle_fetch(
     purity: Option<&str>,
     sorting: Option<&str>,
     count: usize,
+    source: &str,
 ) -> Result<(), Box<dyn std::error::Error>> {
-    let client = WallhavenClient::new(config.api_key.clone());
-
     println!("{}", t!("search_start"));
 
     let options = SearchOptions {
@@ -375,17 +380,27 @@ async fn handle_fetch(
         sorting: sorting.unwrap_or(&config.search_defaults.sorting),
     };
 
-    let wallpapers = client.search(options).await?;
+    // 根据 source 参数选择对应的壁纸源客户端
+    let wallpapers: Vec<source::WallpaperInfo> = match source {
+        "unsplash" => {
+            let key = config.unsplash_access_key.clone()
+                .ok_or("Unsplash Access Key 未配置，请在 config.toml 的 [source.unsplash] 中设置 access_key，或设置 UNSPLASH_ACCESS_KEY 环境变量")?;
+            UnsplashClient::new(key).search(options).await?
+        }
+        _ => {
+            WallhavenClient::new(config.api_key.clone()).search(options).await?
+        }
+    };
 
     if wallpapers.is_empty() {
         println!("{}", t!("no_wallpapers"));
         return Ok(());
     }
 
-    let selected = wallpapers.iter().take(count);
+    let selected: Vec<&source::WallpaperInfo> = wallpapers.iter().take(count).collect();
     let total = count.min(wallpapers.len());
 
-    for (i, wallpaper) in selected.enumerate() {
+    for (i, wallpaper) in selected.iter().enumerate() {
         println!(
             "{}",
             t!(
@@ -397,7 +412,15 @@ async fn handle_fetch(
             )
         );
 
-        let save_path = client.download(wallpaper, &config.wallpaper_dir).await?;
+        let save_path = match source {
+            "unsplash" => {
+                let key = config.unsplash_access_key.clone().unwrap();
+                UnsplashClient::new(key).download(wallpaper, &config.wallpaper_dir).await?
+            }
+            _ => {
+                WallhavenClient::new(config.api_key.clone()).download(wallpaper, &config.wallpaper_dir).await?
+            }
+        };
         println!("{}", t!("save_path", path => save_path.display()));
     }
 
@@ -462,11 +485,9 @@ async fn handle_run(
     categories: Option<&str>,
     purity: Option<&str>,
     sorting: Option<&str>,
+    source: &str,
 ) -> Result<std::path::PathBuf, Box<dyn std::error::Error>> {
-    let client = WallhavenClient::new(config.api_key.clone());
-
     println!("{}", t!("search_start"));
-
     let options = SearchOptions {
         query: query.or(config.search_defaults.query.as_deref()),
         resolution: resolution.unwrap_or(&config.search_defaults.resolution),
@@ -474,24 +495,36 @@ async fn handle_run(
         purity: purity.unwrap_or(&config.search_defaults.purity),
         sorting: sorting.unwrap_or(&config.search_defaults.sorting),
     };
-
-    let wallpapers = client.search(options).await?;
-    let wallpaper = wallpapers.first().ok_or(t!("error_no_wallpapers"))?;
-
-    println!(
-        "{}",
-        t!(
-            "download_info",
-            current => 1,
-            total => 1,
-            id => wallpaper.id,
-            res => wallpaper.resolution
-        )
-    );
-
-    let save_path = client.download(wallpaper, &config.wallpaper_dir).await?;
+    let (wallpapers, save_path) = match source {
+        "unsplash" => {
+            let key = config.unsplash_access_key.clone()
+                .ok_or("Unsplash Access Key 未配置")?;
+            let client = UnsplashClient::new(key);
+            let wallpapers = client.search(options).await?;
+            let wallpaper = wallpapers.first().ok_or(t!("error_no_wallpapers"))?;
+            println!(
+                "{}",
+                t!("download_info", current => 1, total => 1,
+                   id => wallpaper.id, res => wallpaper.resolution)
+            );
+            let path = client.download(wallpaper, &config.wallpaper_dir).await?;
+            (wallpapers, path)
+        }
+        _ => {
+            let client = WallhavenClient::new(config.api_key.clone());
+            let wallpapers = client.search(options).await?;
+            let wallpaper = wallpapers.first().ok_or(t!("error_no_wallpapers"))?;
+            println!(
+                "{}",
+                t!("download_info", current => 1, total => 1,
+                   id => wallpaper.id, res => wallpaper.resolution)
+            );
+            let path = client.download(wallpaper, &config.wallpaper_dir).await?;
+            (wallpapers, path)
+        }
+    };
+    let _ = wallpapers; // 防止 unused 警告
     println!("{}", t!("save_path", path => save_path.display()));
-
     if let Some(theme_name) = theme {
         let image_str = save_path.to_str().ok_or(t!("error_utf8"))?;
         let converted_path = handle_convert(config, image_str, theme_name, None)?;
@@ -593,10 +626,8 @@ fn handle_config(
                 "{}",
                 t!("config_res", res => config.search_defaults.resolution)
             );
-            println!(
-                "{}",
-                t!("config_sorting", sorting => config.search_defaults.sorting)
-            );
+            println!("{}", t!("config_sorting", sorting => config.search_defaults.sorting));
+            println!("  source: {}", config.default_source);
         }
         cli::ConfigAction::Schema => {
             println!("{}", AppConfig::get_schema());

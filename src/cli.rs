@@ -50,6 +50,10 @@ pub enum Commands {
         /// 下载数量
         #[arg(short = 'n', long, default_value = "1", value_name = "N")]
         count: usize,
+
+        /// 壁纸来源 (wallhaven / unsplash)，不指定则使用配置文件中的默认来源
+        #[arg(long)]
+        source: Option<String>,
     },
 
     /// 使用 gowall 对壁纸应用配色主题
@@ -108,6 +112,10 @@ pub enum Commands {
         /// 目标主题名称（若不指定则使用原图）
         #[arg(short, long)]
         theme: Option<String>,
+
+        /// 壁纸来源 (wallhaven / unsplash)，不指定则使用配置文件中的默认来源
+        #[arg(long)]
+        source: Option<String>,
     },
 
     /// 一键完成：下载壁纸 + 应用主题
@@ -139,6 +147,10 @@ pub enum Commands {
         /// 排序方式
         #[arg(short, long)]
         sorting: Option<String>,
+
+        /// 壁纸来源 (wallhaven / unsplash)，不指定则使用配置文件中的默认来源
+        #[arg(long)]
+        source: Option<String>,
     },
 
     /// 配置管理操作
