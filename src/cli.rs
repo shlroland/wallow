@@ -173,6 +173,25 @@ pub enum Commands {
     /// 用法示例:
     ///   wallow clean
     Clean,
+
+    /// 自动更新 wallow 到最新版本
+    ///
+    /// 从 GitHub Releases 下载最新预编译二进制并替换当前可执行文件。
+    ///
+    /// 用法示例:
+    ///   wallow upgrade
+    Upgrade,
+
+    /// 卸载 wallow（删除二进制文件、配置目录及壁纸缓存）
+    ///
+    /// 用法示例:
+    ///   wallow uninstall
+    ///   wallow uninstall --keep-wallpapers
+    Uninstall {
+        /// 保留已下载的壁纸文件，仅删除二进制和配置
+        #[arg(long)]
+        keep_wallpapers: bool,
+    },
 }
 
 /// 配置管理操作

@@ -133,6 +133,12 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         Commands::Clean => {
             handle_clean(&config)?;
         }
+        Commands::Upgrade => {
+            handle_upgrade().await?;
+        }
+        Commands::Uninstall { keep_wallpapers } => {
+            handle_uninstall(&config, *keep_wallpapers)?;
+        }
         Commands::List { fzf } => {
             handle_list(&config, *fzf)?;
         }
@@ -580,5 +586,134 @@ fn handle_config(
             println!("{}", t!("config_updated", key => key, value => value));
         }
     }
+    Ok(())
+}
+
+/// 处理 upgrade 子命令：从 GitHub Releases 下载最新版本并替换当前二进制
+async fn handle_upgrade() -> Result<(), Box<dyn std::error::Error>> {
+    // 从 GitHub API 获取最新 release 信息
+    println!("{}", t!("upgrade_checking"));
+
+    let client = reqwest::Client::builder()
+        // 设置 User-Agent，GitHub API 要求必须携带
+        .user_agent("wallow-upgrade")
+        .build()?;
+
+    // 请求 GitHub latest release API，返回 JSON 包含 tag_name 和 assets
+    let release: serde_json::Value = client
+        .get("https://api.github.com/repos/shlroland/wallow/releases/latest")
+        .send()
+        .await?
+        .json()
+        .await?;
+
+    // 提取版本号字符串，如 "v0.1.3"
+    let latest_version = release["tag_name"]
+        .as_str()
+        .ok_or("无法解析最新版本号")?;
+
+    // 与当前编译时版本对比（env!("CARGO_PKG_VERSION") 在编译期展开）
+    let current_version = env!("CARGO_PKG_VERSION");
+    let latest_stripped = latest_version.trim_start_matches('v');
+
+    if latest_stripped == current_version {
+        println!("{}", t!("upgrade_already_latest", version => current_version));
+        return Ok(());
+    }
+
+    println!("{}", t!("upgrade_found", current => current_version, latest => latest_version));
+
+    // 根据当前系统和架构确定 artifact 名称（与 install.sh 保持一致）
+    let artifact = detect_artifact()?;
+
+    // 构造下载 URL
+    let download_url = format!(
+        "https://github.com/shlroland/wallow/releases/latest/download/{}",
+        artifact
+    );
+
+    println!("{}", t!("upgrade_downloading", url => &download_url));
+
+    // 下载新二进制到临时文件
+    let bytes = client
+        .get(&download_url)
+        .send()
+        .await?
+        .bytes()
+        .await?;
+
+    // 获取当前可执行文件路径
+    let current_exe = std::env::current_exe()?;
+
+    // 写入临时文件（与目标同目录，保证 rename 是原子操作）
+    // 同目录下的 rename 在 Unix 上是原子的，避免写到一半被中断
+    let tmp_path = current_exe.with_extension("tmp");
+    std::fs::write(&tmp_path, &bytes)?;
+
+    // 赋予可执行权限
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::PermissionsExt;
+        // 0o755 = rwxr-xr-x
+        std::fs::set_permissions(&tmp_path, std::fs::Permissions::from_mode(0o755))?;
+    }
+
+    // 原子替换：将临时文件重命名为当前可执行文件
+    std::fs::rename(&tmp_path, &current_exe)?;
+
+    println!("{}", t!("upgrade_done", version => latest_version));
+    Ok(())
+}
+
+/// 根据当前操作系统和 CPU 架构返回对应的 artifact 文件名
+fn detect_artifact() -> Result<String, Box<dyn std::error::Error>> {
+    // std::env::consts::OS 返回 "macos", "linux", "windows" 等
+    // std::env::consts::ARCH 返回 "x86_64", "aarch64" 等
+    let artifact = match (std::env::consts::OS, std::env::consts::ARCH) {
+        ("macos", "x86_64") => "wallow-macos-x64",
+        ("macos", "aarch64") => "wallow-macos-arm64",
+        ("linux", "x86_64") => "wallow-linux-x64",
+        (os, arch) => {
+            return Err(format!("不支持的平台: {os}/{arch}").into());
+        }
+    };
+    Ok(artifact.to_string())
+}
+
+/// 处理 uninstall 子命令：删除二进制、配置目录，可选删除壁纸缓存
+fn handle_uninstall(
+    config: &AppConfig,
+    keep_wallpapers: bool,
+) -> Result<(), Box<dyn std::error::Error>> {
+    println!("{}", t!("uninstall_start"));
+
+    // 1. 删除壁纸缓存目录（除非用户指定 --keep-wallpapers）
+    if !keep_wallpapers {
+        for dir in [&config.wallpaper_dir, &config.converted_dir] {
+            if dir.exists() {
+                std::fs::remove_dir_all(dir)?;
+                println!("{}", t!("uninstall_removed_dir", path => dir.display()));
+            }
+        }
+    } else {
+        println!("{}", t!("uninstall_kept_wallpapers"));
+    }
+
+    // 2. 删除配置目录 ~/.config/wallow/
+    // config_path 是 ~/.config/wallow/config.toml，取其父目录
+    if let Some(config_dir) = config.config_path.parent() {
+        if config_dir.exists() {
+            std::fs::remove_dir_all(config_dir)?;
+            println!("{}", t!("uninstall_removed_dir", path => config_dir.display()));
+        }
+    }
+
+    // 3. 删除当前可执行文件本身
+    // 在 Unix 上，正在运行的进程可以删除自身的 inode，进程仍可继续运行直到退出
+    let current_exe = std::env::current_exe()?;
+    std::fs::remove_file(&current_exe)?;
+    println!("{}", t!("uninstall_removed_bin", path => current_exe.display()));
+
+    println!("{}", t!("uninstall_done"));
     Ok(())
 }
