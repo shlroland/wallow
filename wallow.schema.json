@@ -32,6 +32,16 @@
           "$ref": "#/definitions/SourceConfigs"
         }
       ]
+    },
+    "schedule": {
+      "default": {
+        "cron": null
+      },
+      "allOf": [
+        {
+          "$ref": "#/definitions/ScheduleConfig"
+        }
+      ]
     }
   },
   "definitions": {
@@ -110,6 +120,19 @@
       "type": "object",
       "properties": {
         "api_key": {
+          "type": [
+            "string",
+            "null"
+          ]
+        }
+      }
+    },
+    "ScheduleConfig": {
+      "description": "定时任务配置，搜索参数全部从 common.search 读取",
+      "type": "object",
+      "properties": {
+        "cron": {
+          "description": "Cron 表达式，定义定时执行频率 (例: \"0 8 * * *\" 表示每天 08:00)",
           "type": [
             "string",
             "null"

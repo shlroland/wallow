@@ -14,6 +14,8 @@ struct ConfigFile {
     common: CommonConfig,
     #[serde(default)]
     source: SourceConfigs,
+    #[serde(default)]
+    schedule: ScheduleConfig,
 }
 
 #[derive(Debug, Deserialize, Serialize, Default, JsonSchema)]
@@ -76,6 +78,14 @@ struct WallhavenConfig {
     api_key: Option<String>,
 }
 
+/// 定时任务配置
+#[derive(Debug, Deserialize, Serialize, Default, JsonSchema)]
+pub struct ScheduleConfig {
+    /// Cron 表达式，定义定时执行频率 (例: "0 8 * * *" 表示每天 8:00)
+    #[serde(default)]
+    pub cron: Option<String>,
+}
+
 /// 应用全局配置项
 pub struct AppConfig {
     /// Wallhaven API Key (优先级：ENV > TOML)
@@ -88,6 +98,8 @@ pub struct AppConfig {
     pub config_path: PathBuf,
     /// 默认搜索参数
     pub search_defaults: SearchDefaults,
+    /// 定时任务配置 (cron 表达式)
+    pub schedule: ScheduleConfig,
 }
 
 impl AppConfig {
@@ -127,6 +139,7 @@ impl AppConfig {
             converted_dir,
             config_path,
             search_defaults: config_file.common.search,
+            schedule: config_file.schedule,
         }
     }
 
@@ -167,11 +180,19 @@ impl AppConfig {
                     api_key: self.api_key.clone(),
                 },
             },
+            schedule: ScheduleConfig {
+                cron: self.schedule.cron.clone(),
+            },
         };
 
         let toml_str = toml::to_string_pretty(&config_file)
             .map_err(|e| std::io::Error::new(std::io::ErrorKind::Other, e))?;
         fs::write(&self.config_path, toml_str)
+    }
+    /// 更新 schedule.cron 并保存到配置文件
+    pub fn set_cron(&mut self, cron: String) -> std::io::Result<()> {
+        self.schedule.cron = Some(cron);
+        self.save()
     }
 
     /// 获取配置文件的 JSON Schema
@@ -197,6 +218,9 @@ impl AppConfig {
                 wallhaven: WallhavenConfig {
                     api_key: self.api_key.clone(),
                 },
+            },
+            schedule: ScheduleConfig {
+                cron: self.schedule.cron.clone(),
             },
         };
 

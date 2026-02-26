@@ -30,3 +30,10 @@ sorting = "random"
 # Wallhaven API Key (可选)
 # 你可以在这里设置，也可以通过环境变量 WALLHAVEN_API_KEY 设置
 # api_key = "your_api_key_here"
+
+
+[schedule]
+# Cron 表达式，定义定时执行频率
+# 示例: "0 8 * * *" 表示每天 08:00 执行一次
+# 搜索参数全部从 [common.search] 读取
+# cron = "0 8 * * *"
