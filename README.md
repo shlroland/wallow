@@ -12,7 +12,7 @@
 - 🔍 **Search & Fetch**: Powerful search interface for Wallhaven API.
 - 🎨 **Theme Conversion**: Seamless integration with `gowall` to apply themes like Catppuccin, Dracula, Nord, and more.
 - 📅 **Schedule**: Built-in support for daily wallpaper automation with `crontab` integration.
-- 🖼️ **Interactive Preview**: Integration with `fzf` for interactive wallpaper selection with image previews (supports WezTerm, Kitty, etc.).
+- 🖼️ **Interactive Preview**: Integration with `fzf` for interactive wallpaper selection with image previews. Supports WezTerm (`chafa` + iTerm2 protocol), Kitty, iTerm2, and any terminal with `chafa` installed.
 - 🌍 **I18n**: Automatic language detection (Supports English and Chinese).
 - ⚙️ **Configurable**: Unix-style configuration via `~/.config/wallow/config.toml`.
 - ⌨️ **Auto-completion**: Support for Zsh, Fish, and Bash.
@@ -61,6 +61,7 @@ wallow convert image.jpg --theme catppuccin
 wallow run --query "cyberpunk" --theme dracula
 
 # List and interactively preview wallpapers (requires fzf)
+# List and interactively preview wallpapers (requires fzf + chafa)
 wallow list --fzf
 
 # Set a local image as system wallpaper
@@ -74,6 +75,23 @@ wallow config show
 wallow config dump
 wallow config set query "nature"
 ```
+
+### Interactive Preview (`list --fzf`)
+
+Opens an interactive wallpaper picker with image preview. Selecting an entry sets it as your system wallpaper.
+
+**Requirements:**
+- [`fzf`](https://github.com/junegunn/fzf): `brew install fzf`
+- [`chafa`](https://hpjansson.org/chafa/): `brew install chafa`
+
+**Terminal support:**
+
+| Terminal | Protocol | Notes |
+|----------|----------|-------|
+| WezTerm  | iTerm2 (`chafa -f iterm`) | `wezterm imgcat` has a [known fzf bug](https://github.com/wezterm/wezterm/issues/6088); chafa is used instead |
+| Kitty    | Kitty graphics | via `kitty +kitten icat` |
+| iTerm2   | iTerm2 inline | via `imgcat` |
+| Others   | auto (`chafa`) | best available protocol |
 
 ### Automation (Schedule)
 

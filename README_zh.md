@@ -9,7 +9,7 @@
 - 🔍 **搜索与下载**: 强大的 Wallhaven API 搜索接口。
 - 🎨 **主题转换**: 无缝集成 `gowall`，支持 Catppuccin, Dracula, Nord 等配色主题。
 - 📅 **定时任务**: 内置 `schedule` 子命令，轻松集成 `crontab` 实现每日自动换壁纸。
-- 🖼️ **交互式预览**: 集成 `fzf` 实现交互式壁纸选择，支持终端图片预览（WezTerm, Kitty 等）。
+- 🖼️ **交互式预览**: 集成 `fzf` 实现交互式壁纸选择，支持终端图片预览。支持 WezTerm（`chafa` + iTerm2 协议）、Kitty、iTerm2 及安装了 `chafa` 的任意终端。
 - 🌍 **多语言支持**: 自动检测系统语言（目前支持中英文）。
 - ⚙️ **灵活配置**: 遵循 Unix 风格，通过 `~/.config/wallow/config.toml` 管理配置。
 - ⌨️ **命令补全**: 支持 Zsh, Fish, Bash 等多种 Shell 的自动补全。
@@ -58,6 +58,7 @@ wallow convert image.jpg --theme catppuccin
 wallow run --query "cyberpunk" --theme dracula
 
 # 列表查看与交互式预览 (需要安装 fzf)
+# 列表查看与交互式预览 (需要安装 fzf 和 chafa)
 wallow list --fzf
 
 # 将本地图片设为系统壁纸
@@ -71,6 +72,18 @@ wallow config show
 wallow config dump
 wallow config set query "nature"
 ```
+### 交互式预览 (`list --fzf`)
+打开交互式壁纸选择界面，选中后自动设为系统壁纸。
+**前置依赖：**
+- [`fzf`](https://github.com/junegunn/fzf)：`brew install fzf`
+- [`chafa`](https://hpjansson.org/chafa/)：`brew install chafa`
+**终端支持情况：**
+| 终端 | 协议 | 备注 |
+|------|------|------|
+| WezTerm  | iTerm2（`chafa -f iterm`） | `wezterm imgcat` 在 fzf 中有[已知 bug](https://github.com/wezterm/wezterm/issues/6088)，改用 chafa |
+| Kitty    | Kitty graphics | 通过 `kitty +kitten icat` |
+| iTerm2   | iTerm2 inline | 通过 `imgcat` |
+| 其他终端 | 自动（`chafa`） | 自动选择最佳协议 |
 
 ### 自动化 (Schedule)
 
