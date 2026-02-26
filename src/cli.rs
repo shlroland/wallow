@@ -6,13 +6,13 @@ use clap_complete::Shell; // Shell 枚举：Bash, Zsh, Fish, Elvish, PowerShell
 
 /// 壁纸下载与主题转换工具
 ///
-/// 从 Wallhaven 下载壁纸，使用 gowall 应用配色主题，
+/// 从 Wallhaven 或 Unsplash 下载壁纸，使用 gowall 应用配色主题，
 /// 生成适合终端软件的背景图片。
 #[derive(Parser)]
 #[command(name = "wallow")]
-#[command(version)] // 自动从 Cargo.toml 读取 version 字段
-#[command(author)] // 自动从 Cargo.toml 读取 authors 字段（如有）
-#[command(about = "壁纸下载与主题转换工具 — 从 Wallhaven 获取壁纸，用 gowall 应用配色主题")]
+#[command(version)]
+#[command(author)]
+#[command(about = "壁纸下载与主题转换工具 — 从 Wallhaven / Unsplash 获取壁纸，用 gowall 应用配色主题")]
 pub struct Cli {
     #[command(subcommand)]
     pub command: Commands,
@@ -128,9 +128,9 @@ pub enum Commands {
         #[arg(short, long)]
         query: Option<String>,
 
-        /// 目标主题名称
+        /// 目标主题名称（不指定则使用配置文件中的 theme）
         #[arg(short, long)]
-        theme: String,
+        theme: Option<String>,
 
         /// 壁纸分辨率
         #[arg(short, long)]

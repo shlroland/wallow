@@ -105,7 +105,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             handle_run(
                 &config,
                 query.as_deref(),
-                Some(theme),
+                theme.as_deref(),
                 resolution.as_deref(),
                 categories.as_deref(),
                 purity.as_deref(),
@@ -158,7 +158,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 fn handle_list(config: &AppConfig, use_fzf: bool) -> Result<(), Box<dyn std::error::Error>> {
     // 收集壁纸目录和转换目录中的所有图片文件
     let mut images: Vec<std::path::PathBuf> = Vec::new();
-    for dir in [&config.wallpaper_dir, &config.converted_dir] {
+    for dir in std::iter::once(&config.wallpaper_dir).chain(config.converted_dirs.iter()) {
         if dir.exists() {
             for entry in std::fs::read_dir(dir)? {
                 let path = entry?.path();
@@ -328,7 +328,7 @@ fn handle_apply(image: &str) -> Result<(), Box<dyn std::error::Error>> {
 
 /// 处理 clean 子命令：清理所有以 wallow- 开头的文件
 fn handle_clean(config: &AppConfig) -> Result<(), Box<dyn std::error::Error>> {
-    let dirs = vec![&config.wallpaper_dir, &config.converted_dir];
+    let dirs: Vec<&std::path::PathBuf> = std::iter::once(&config.wallpaper_dir).chain(config.converted_dirs.iter()).collect();
 
     let mut deleted_count = 0;
 
@@ -456,7 +456,18 @@ fn handle_convert(
         let p = std::path::PathBuf::from(out);
         if p.is_dir() { p.join(new_filename) } else { p }
     } else {
-        config.converted_dir.join(new_filename)
+        // 向所有 converted_dirs 写入，返回第一个目录的路径
+        let first = config.converted_dirs.first()
+            .ok_or("converted_dirs 为空")?;
+        let primary = first.join(&new_filename);
+        gowall::convert(image, theme, Some(primary.to_str().unwrap()))?;
+        // 将转换结果复制到其余目录
+        for extra_dir in config.converted_dirs.iter().skip(1) {
+            let dest = extra_dir.join(&new_filename);
+            std::fs::copy(&primary, &dest)?;
+        }
+        println!("{}", t!("convert_done", path => primary.display()));
+        return Ok(primary);
     };
 
     gowall::convert(image, theme, Some(output_file_path.to_str().unwrap()))?;
@@ -525,7 +536,9 @@ async fn handle_run(
     };
     let _ = wallpapers; // 防止 unused 警告
     println!("{}", t!("save_path", path => save_path.display()));
-    if let Some(theme_name) = theme {
+    // theme 优先级：命令行参数 > config.default_theme > 不转换
+    let effective_theme = theme.or(config.default_theme.as_deref());
+    if let Some(theme_name) = effective_theme {
         let image_str = save_path.to_str().ok_or(t!("error_utf8"))?;
         let converted_path = handle_convert(config, image_str, theme_name, None)?;
         println!("{}", t!("all_done", theme => theme_name));
@@ -749,7 +762,7 @@ fn handle_uninstall(
 
     // 1. 删除壁纸缓存目录（除非用户指定 --keep-wallpapers）
     if !keep_wallpapers {
-        for dir in [&config.wallpaper_dir, &config.converted_dir] {
+        for dir in std::iter::once(&config.wallpaper_dir).chain(config.converted_dirs.iter()) {
             if dir.exists() {
                 std::fs::remove_dir_all(dir)?;
                 println!("{}", t!("uninstall_removed_dir", path => dir.display()));

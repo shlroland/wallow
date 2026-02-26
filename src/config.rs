@@ -22,9 +22,16 @@ struct ConfigFile {
 struct CommonConfig {
     /// 壁纸保存根目录 (支持绝对路径，相对路径则相对于 $HOME)
     wallpaper_dir: Option<String>,
+    /// 转换后壁纸的输出目录列表，支持多个目录
+    /// 不配置则默认为 wallpaper_dir/converted
+    #[serde(default)]
+    converted_dirs: Vec<String>,
     /// 默认壁纸来源 (wallhaven / unsplash)，默认 wallhaven
     #[serde(default = "default_source")]
     source: String,
+    /// 默认主题，不配置则不自动转换
+    #[serde(default)]
+    theme: Option<String>,
     /// 默认搜索参数
     #[serde(default)]
     search: SearchDefaults,
@@ -107,10 +114,12 @@ pub struct AppConfig {
     pub unsplash_access_key: Option<String>,
     /// 默认壁纸来源 (wallhaven / unsplash)
     pub default_source: String,
+    /// 默认主题（不配置则不自动转换）
+    pub default_theme: Option<String>,
     /// 壁纸保存根目录
     pub wallpaper_dir: PathBuf,
-    /// 转换后壁纸的保存目录
-    pub converted_dir: PathBuf,
+    /// 转换后壁纸的输出目录列表（至少一个）
+    pub converted_dirs: Vec<PathBuf>,
     /// 配置文件所在路径
     pub config_path: PathBuf,
     /// 默认搜索参数
@@ -153,14 +162,22 @@ impl AppConfig {
             home_path.join("Pictures").join("wallow")
         };
 
-        let converted_dir = wallpaper_dir.join("converted");
-
+        // converted_dirs: 配置了则解析每个路径，未配置则默认为 wallpaper_dir/converted
+        let converted_dirs: Vec<PathBuf> = if config_file.common.converted_dirs.is_empty() {
+            vec![wallpaper_dir.join("converted")]
+        } else {
+            config_file.common.converted_dirs.iter().map(|s| {
+                let p = PathBuf::from(s);
+                if p.is_absolute() { p } else { home_path.join(p) }
+            }).collect()
+        };
         Self {
             api_key,
             unsplash_access_key,
             default_source: if config_file.common.source.is_empty() { default_source() } else { config_file.common.source },
+            default_theme: config_file.common.theme,
             wallpaper_dir,
-            converted_dir,
+            converted_dirs,
             config_path,
             search_defaults: config_file.common.search,
             schedule: config_file.schedule,
@@ -181,7 +198,9 @@ impl AppConfig {
         }
 
         fs::create_dir_all(&self.wallpaper_dir)?;
-        fs::create_dir_all(&self.converted_dir)?;
+        for dir in &self.converted_dirs {
+            fs::create_dir_all(dir)?;
+        }
 
         Ok(())
     }
@@ -191,7 +210,9 @@ impl AppConfig {
         let config_file = ConfigFile {
             common: CommonConfig {
                 wallpaper_dir: Some(self.wallpaper_dir.to_string_lossy().to_string()),
+                converted_dirs: self.converted_dirs.iter().map(|p| p.to_string_lossy().to_string()).collect(),
                 source: self.default_source.clone(),
+                theme: self.default_theme.clone(),
                 search: SearchDefaults {
                     query: self.search_defaults.query.clone(),
                     resolution: self.search_defaults.resolution.clone(),
@@ -234,7 +255,9 @@ impl AppConfig {
         let config_file = ConfigFile {
             common: CommonConfig {
                 wallpaper_dir: Some(self.wallpaper_dir.to_string_lossy().to_string()),
+                converted_dirs: self.converted_dirs.iter().map(|p| p.to_string_lossy().to_string()).collect(),
                 source: self.default_source.clone(),
+                theme: self.default_theme.clone(),
                 search: SearchDefaults {
                     query: self.search_defaults.query.clone(),
                     resolution: self.search_defaults.resolution.clone(),
