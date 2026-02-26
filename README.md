@@ -78,6 +78,7 @@ wallow config set query "nature"
 Opens an interactive wallpaper picker with image preview. Selecting an entry sets it as your system wallpaper.
 
 **Requirements:**
+
 - [`fzf`](https://github.com/junegunn/fzf): `brew install fzf`
 - [`chafa`](https://hpjansson.org/chafa/): `brew install chafa`
 
@@ -199,7 +200,6 @@ wallow fetch --query "landscape" --source unsplash
 wallow run --query "cyberpunk" --theme dracula --source unsplash
 ```
 
-## 📄 License
 ## 📄 License
 
 This project is licensed under the MIT License.
