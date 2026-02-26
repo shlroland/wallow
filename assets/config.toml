@@ -9,12 +9,26 @@
 # 默认值: "Pictures/wallow"
 # wallpaper_dir = "Pictures/wallow"
 
+# 转换后壁纸的输出目录列表，支持多个目录
+# 不配置则默认为 wallpaper_dir/converted
+# 支持绝对路径，相对路径则相对于 $HOME
+# 示例: 同时输出到壁纸目录和 WezTerm 背景图目录
+# converted_dirs = [
+#   "Pictures/wallow/converted",
+#   ".config/wezterm/backgrounds",
+# ]
+
 # 默认壁纸来源 (wallhaven / unsplash)
 # 可通过 --source 参数临时覆盖
 # source = "wallhaven"
 
+# 默认主题，设置后 run/set 命令无需每次传 --theme
+# 可通过 --theme 参数临时覆盖，不设置则下载原图不转换
+# 可用主题列表: wallow themes
+# theme = "catppuccin"
+
 [common.search]
-# 默认搜索关键词 (None 表示不限)
+# 默认搜索关键词 (不设置则不限)
 # query = "nature"
 
 # 默认分辨率
