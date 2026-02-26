@@ -3,13 +3,13 @@
 [![Language](https://img.shields.io/badge/language-Rust-orange.svg)](https://www.rust-lang.org/)
 [![License](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 
-**Wallow** is a modern CLI tool written in Rust designed for wallpaper enthusiasts. It allows you to search and download high-quality wallpapers from **Wallhaven** or **Unsplash**, and automatically apply aesthetic color themes using `gowall`.
+**Wallow** is a modern CLI tool written in Rust for wallpaper enthusiasts. Search and download high-quality wallpapers from multiple sources, and automatically apply aesthetic color themes using `gowall`.
 
 [中文文档 (Chinese Documentation)](README_zh.md)
 
 ## ✨ Features
 
-- 🔍 **Search & Fetch**: Powerful search interface supporting multiple sources — **Wallhaven** and **Unsplash**.
+- 🔍 **Search & Fetch**: Pluggable source system — supports multiple wallpaper providers with per-source configuration.
 - 🎨 **Theme Conversion**: Seamless integration with `gowall` to apply themes like Catppuccin, Dracula, Nord, and more.
 - 📅 **Schedule**: Built-in support for daily wallpaper automation with `crontab` integration.
 - 🖼️ **Interactive Preview**: Integration with `fzf` for interactive wallpaper selection with image previews. Supports WezTerm (`chafa` + iTerm2 protocol), Kitty, iTerm2, and any terminal with `chafa` installed.
@@ -51,25 +51,22 @@ The binary will be available at `target/release/wallow`.
 ### Basic Commands
 
 ```bash
-# Search and download wallpapers
+# Search and download wallpapers (default source: wallhaven)
 wallow fetch --query "nature" --count 3
-
+# Use a specific source
+wallow fetch --query "landscape" --source unsplash
 # Convert a local image to a theme
 wallow convert image.jpg --theme catppuccin
-
 # One-click: Search, download, and apply theme
 wallow run --query "cyberpunk" --theme dracula
-
-# List and interactively preview wallpapers (requires fzf)
+# Use default theme from config (no --theme needed if configured)
+wallow run --query "nature"
 # List and interactively preview wallpapers (requires fzf + chafa)
 wallow list --fzf
-
 # Set a local image as system wallpaper
 wallow apply wallpapers/image.jpg
-
 # List all available gowall themes
 wallow themes
-
 # Manage configuration
 wallow config show
 wallow config dump
@@ -121,24 +118,25 @@ Create a config file at `~/.config/wallow/config.toml`:
 
 ```toml
 #:schema https://raw.githubusercontent.com/shlroland/wallow/master/wallow.schema.json
-
 [common]
 wallpaper_dir = "my_wallpapers"
-# Default wallpaper source: wallhaven (default) or unsplash
-# Can be overridden per-command with --source
+# Output directories for converted wallpapers (supports multiple)
+converted_dirs = [
+  "Pictures/wallow/converted",
+  ".config/wezterm/backgrounds",
+]
+# Default source: wallhaven (default) or unsplash
 source = "wallhaven"
-
+# Default theme — run/set will auto-convert without --theme
+theme = "catppuccin"
 [common.search]
 query = "nature"
 resolution = "3840x2160"
 sorting = "random"
-
 [source.wallhaven]
 api_key = "your_wallhaven_api_key_here"
-
 [source.unsplash]
 access_key = "your_unsplash_access_key_here"
-
 [schedule]
 # Cron expression for the scheduled wallpaper job
 # Example: every day at 08:00
@@ -147,38 +145,61 @@ cron = "0 8 * * *"
 
 ## 🖼️ Wallpaper Sources
 
-Wallow supports multiple wallpaper sources. Use `--source` to switch per-command, or set a default in `config.toml`.
+Wallow uses a pluggable source system. Use `--source <name>` to switch per-command, or set a default in `config.toml` under `[common] source`.
 
-### Wallhaven
+| Source | Requires | Notes |
+|--------|----------|-------|
+| `wallhaven` | API Key (optional) | Default source |
+| `unsplash` | Access Key (required) | Demo: 50 req/hr |
 
-The default source. Supports advanced filtering by resolution, category, and purity.
+### wallhaven
 
-| Config | Description |
-|--------|-------------|
-| `[source.wallhaven]` `api_key` | Optional. Required for NSFW content. Get yours at [wallhaven.cc/settings/account](https://wallhaven.cc/settings/account). |
-| `WALLHAVEN_API_KEY` env var | Alternative to config file. |
+The default source. Works out of the box without any configuration. An API Key is only needed to access NSFW content.
+
+**Setup (optional):**
+
+1. Get your API Key at [wallhaven.cc/settings/account](https://wallhaven.cc/settings/account)
+2. Add to config or set as environment variable:
+
+```toml
+[source.wallhaven]
+api_key = "your_wallhaven_api_key_here"
+```
+
+```bash
+export WALLHAVEN_API_KEY="your_wallhaven_api_key_here"
+```
+
+### unsplash
+
+High-quality editorial photos from [unsplash.com](https://unsplash.com). Requires a free Access Key.
+
+**Setup (required):**
+
+1. Register a new app at [unsplash.com/developers](https://unsplash.com/developers)
+2. Copy the **Access Key** (not the Secret Key)
+3. Add to config or set as environment variable:
+
+```toml
+[source.unsplash]
+access_key = "your_unsplash_access_key_here"
+```
+
+```bash
+export UNSPLASH_ACCESS_KEY="your_unsplash_access_key_here"
+```
+
+> Demo apps are rate-limited to **50 requests/hour**. Apply for Production access on the Unsplash developer dashboard to raise it to 5000/hr.
+
+**Usage:**
 
 ```bash
 wallow fetch --query "nature" --count 3
-wallow fetch --query "anime" --source wallhaven
-```
-
-### Unsplash
-
-High-quality photos from [unsplash.com](https://unsplash.com). Requires a free Access Key.
-
-| Config | Description |
-|--------|-------------|
-| `[source.unsplash]` `access_key` | **Required.** Register at [unsplash.com/developers](https://unsplash.com/developers) to get one. |
-| `UNSPLASH_ACCESS_KEY` env var | Alternative to config file. |
-
-> **Note**: Demo apps are limited to 50 requests/hour. Apply for production access for 5000 requests/hour.
-
-```bash
 wallow fetch --query "landscape" --source unsplash
 wallow run --query "cyberpunk" --theme dracula --source unsplash
 ```
 
+## 📄 License
 ## 📄 License
 
 This project is licensed under the MIT License.
