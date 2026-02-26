@@ -9,6 +9,10 @@
 # 默认值: "Pictures/wallow"
 # wallpaper_dir = "Pictures/wallow"
 
+# 默认壁纸来源 (wallhaven / unsplash)
+# 可通过 --source 参数临时覆盖
+# source = "wallhaven"
+
 [common.search]
 # 默认搜索关键词 (None 表示不限)
 # query = "nature"
@@ -28,9 +32,14 @@ sorting = "random"
 
 [source.wallhaven]
 # Wallhaven API Key (可选)
-# 你可以在这里设置，也可以通过环境变量 WALLHAVEN_API_KEY 设置
-# api_key = "your_api_key_here"
+# 可在这里设置，也可通过环境变量 WALLHAVEN_API_KEY 设置
+# api_key = "your_wallhaven_api_key_here"
 
+[source.unsplash]
+# Unsplash Access Key (当 source = "unsplash" 时必填)
+# 在 https://unsplash.com/developers 注册应用后获取 Access Key
+# 也可通过环境变量 UNSPLASH_ACCESS_KEY 设置
+# access_key = "your_unsplash_access_key_here"
 
 [schedule]
 # Cron 表达式，定义定时执行频率
