@@ -15,7 +15,7 @@ rust_i18n::i18n!("locales");
 use clap::{CommandFactory, Parser}; // 引入 Parser trait 的 parse() 方法; CommandFactory 用于生成补全脚本
 use clap_complete::generate; // 引入补全脚本生成函数
 use cli::{Cli, Commands}; // 引入 CLI 结构体和子命令枚举
-use config::AppConfig; // 引入应用配置
+use config::{AppConfig, StringOrVec}; // 引入应用配置
 use rust_i18n::t; // 引入翻译宏
 use source::{SearchOptions, WallpaperSource};
 use source::wallhaven::WallhavenClient;
@@ -370,10 +370,13 @@ async fn handle_fetch(
     count: usize,
     source: &str,
 ) -> Result<(), Box<dyn std::error::Error>> {
-    println!("{}", t!("search_start"));
+    // 获取有效的 query：优先使用命令行参数，否则从配置中获取（支持随机选择）
+    let effective_query = query.or_else(|| {
+        config.search_defaults.query.as_ref().map(|q| q.pick_random())
+    });
 
     let options = SearchOptions {
-        query: query.or(config.search_defaults.query.as_deref()),
+        query: effective_query,
         resolution: resolution.unwrap_or(&config.search_defaults.resolution),
         categories: categories.unwrap_or(&config.search_defaults.categories),
         purity: purity.unwrap_or(&config.search_defaults.purity),
@@ -498,9 +501,13 @@ async fn handle_run(
     sorting: Option<&str>,
     source: &str,
 ) -> Result<std::path::PathBuf, Box<dyn std::error::Error>> {
-    println!("{}", t!("search_start"));
+    // 获取有效的 query：优先使用命令行参数，否则从配置中获取（支持随机选择）
+    let effective_query = query.or_else(|| {
+        config.search_defaults.query.as_ref().map(|q| q.pick_random())
+    });
+
     let options = SearchOptions {
-        query: query.or(config.search_defaults.query.as_deref()),
+        query: effective_query,
         resolution: resolution.unwrap_or(&config.search_defaults.resolution),
         categories: categories.unwrap_or(&config.search_defaults.categories),
         purity: purity.unwrap_or(&config.search_defaults.purity),
@@ -632,8 +639,10 @@ fn handle_config(
                 "{}",
                 t!("config_wallpaper_dir", path => config.wallpaper_dir.display())
             );
-            println!("{}", t!("config_search_defaults"));
-            let query_str = config.search_defaults.query.as_deref().unwrap_or("None");
+            let query_str = config.search_defaults.query
+                .as_ref()
+                .map(|q| q.to_display_string())
+                .unwrap_or_else(|| "None".to_string());
             println!("{}", t!("config_query", query => query_str));
             println!(
                 "{}",
@@ -650,7 +659,7 @@ fn handle_config(
         }
         cli::ConfigAction::Set { key, value } => {
             match key.as_str() {
-                "query" => config.search_defaults.query = Some(value.clone()),
+                "query" => config.search_defaults.query = Some(StringOrVec::Single(value.clone())),
                 "res" | "resolution" => config.search_defaults.resolution = value.clone(),
                 "sorting" => config.search_defaults.sorting = value.clone(),
                 _ => return Err(t!("config_error_unknown_key", key => key).into()),

@@ -7,6 +7,47 @@ use std::env; // 环境变量模块
 use std::fs; // 文件系统模块
 use std::path::{Path, PathBuf}; // 路径处理类型
 use shellexpand::tilde; // 用于展开 ~ 和环境变量
+use rand::seq::SliceRandom; // 用于随机选择
+
+/// 支持字符串或字符串数组的类型
+/// TOML 中可配置为 query = "nature" 或 query = ["nature", "anime", "landscape"]
+#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
+#[serde(untagged)]
+pub enum StringOrVec {
+    Single(String),
+    Multiple(Vec<String>),
+}
+
+impl StringOrVec {
+    /// 随机选择一个字符串
+    /// - Single: 直接返回该字符串
+    /// - Multiple: 随机选择其中一个
+    pub fn pick_random(&self) -> &str {
+        match self {
+            StringOrVec::Single(s) => s.as_str(),
+            StringOrVec::Multiple(vec) => {
+                // 使用 thread_rng 进行随机选择
+                vec.choose(&mut rand::thread_rng())
+                    .map(|s| s.as_str())
+                    .unwrap_or("")
+            }
+        }
+    }
+
+    /// 转换为单个字符串（用于显示）
+    pub fn to_display_string(&self) -> String {
+        match self {
+            StringOrVec::Single(s) => s.clone(),
+            StringOrVec::Multiple(vec) => vec.join(", "),
+        }
+    }
+}
+
+impl Default for StringOrVec {
+    fn default() -> Self {
+        StringOrVec::Multiple(Vec::new())
+    }
+}
 
 /// 展开路径中的 ~ 和环境变量 ($HOME, $XDG_CONFIG_HOME 等)
 /// 支持格式: ~/path, $HOME/path, ${HOME}/path
@@ -34,7 +75,6 @@ struct CommonConfig {
     /// 转换后壁纸的输出目录列表，支持多个目录
     /// 支持 ~、$HOME 等环境变量，相对路径则相对于 $HOME
     /// 不配置则默认为 wallpaper_dir/converted
-    /// 不配置则默认为 wallpaper_dir/converted
     #[serde(default)]
     converted_dirs: Vec<String>,
     /// 默认壁纸来源 (wallhaven / unsplash)，默认 wallhaven
@@ -50,9 +90,11 @@ struct CommonConfig {
 
 #[derive(Debug, Deserialize, Serialize, JsonSchema)]
 pub struct SearchDefaults {
-    /// 默认搜索关键词
+    /// 默认搜索关键词，支持字符串或数组
+    /// 示例: query = "nature" 或 query = ["nature", "anime", "landscape"]
+    /// 如果是数组，每次搜索时会随机选择一个
     #[serde(default)]
-    pub query: Option<String>,
+    pub query: Option<StringOrVec>,
     #[serde(default = "default_resolution")]
     pub resolution: String,
     #[serde(default = "default_categories")]

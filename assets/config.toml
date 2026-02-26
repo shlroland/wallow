@@ -30,9 +30,11 @@
 # theme = "catppuccin"
 
 [common.search]
-# 默认搜索关键词 (不设置则不限)
+# 默认搜索关键词，支持字符串或数组
+# 单个关键词: query = "nature"
+# 多个关键词（随机选择）: query = ["nature", "anime", "landscape", "cyberpunk"]
+# 不设置则不限
 # query = "nature"
-
 # 默认分辨率
 resolution = "3840x2160"
 

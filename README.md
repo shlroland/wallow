@@ -132,7 +132,7 @@ source = "wallhaven"
 # Default theme — run/set will auto-convert without --theme
 theme = "catppuccin"
 [common.search]
-query = "nature"
+query = "nature"  # Single keyword, or use array: ["nature", "anime", "landscape"]
 resolution = "3840x2160"
 sorting = "random"
 [source.wallhaven]
@@ -144,6 +144,15 @@ access_key = "your_unsplash_access_key_here"
 # Example: every day at 08:00
 cron = "0 8 * * *"
 ```
+
+**Path Expansion:** `wallpaper_dir` and `converted_dirs` support the following:
+- `~` — expands to `$HOME`
+- `$HOME`, `${HOME}` — environment variables
+- Relative paths — resolved relative to `$HOME`
+
+**Query Array:** `query` supports both single string and array:
+- `query = "nature"` — always searches for "nature"
+- `query = ["nature", "anime", "landscape"]` — randomly picks one each time
 
 **Path Expansion:** `wallpaper_dir` and `converted_dirs` support the following:
 - `~` — expands to `$HOME`
