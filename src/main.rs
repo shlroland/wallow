@@ -1,6 +1,8 @@
 // main.rs — 程序入口
 // 负责初始化异步运行时、解析命令行参数、分发子命令
 
+extern crate libc;
+
 mod cli; // 声明 cli 模块，对应 src/cli.rs
 mod config; // 声明 config 模块，对应 src/config.rs
 mod gowall; // 声明 gowall 模块，对应 src/gowall.rs
@@ -131,8 +133,176 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         Commands::Clean => {
             handle_clean(&config)?;
         }
+        Commands::List { fzf } => {
+            handle_list(&config, *fzf)?;
+        }
+        Commands::Apply { image } => {
+            handle_apply(image)?;
+        }
     }
 
+    Ok(())
+}
+/// 处理 list 子命令：列出已下载的壁纸，可选 fzf 交互预览
+fn handle_list(config: &AppConfig, use_fzf: bool) -> Result<(), Box<dyn std::error::Error>> {
+    // 收集壁纸目录和转换目录中的所有图片文件
+    let mut images: Vec<std::path::PathBuf> = Vec::new();
+    for dir in [&config.wallpaper_dir, &config.converted_dir] {
+        if dir.exists() {
+            for entry in std::fs::read_dir(dir)? {
+                let path = entry?.path();
+                if path.is_file() {
+                    if let Some(ext) = path.extension().and_then(|e| e.to_str()) {
+                        if matches!(ext.to_lowercase().as_str(), "jpg" | "jpeg" | "png" | "webp") {
+                            images.push(path);
+                        }
+                    }
+                }
+            }
+        }
+    }
+    if images.is_empty() {
+        println!("{}", t!("no_wallpapers"));
+        return Ok(());
+    }
+    if !use_fzf {
+        // 普通列表模式：直接打印路径
+        for path in &images {
+            println!("{}", path.display());
+        }
+        return Ok(());
+    }
+    // fzf 交互模式
+    let preview_cmd = build_preview_cmd();
+    println!("{}", t!("list_found", count => images.len()));
+    let tmp = std::env::temp_dir().join("wallow_fzf_selection.txt");
+    // fzf 的 UI 需要直接读写 /dev/tty。
+    // 通过 sh -c 运行整条管道：printf 把路径列表喂给 fzf，
+    // fzf 检测到 stdout 被重定向时自动用 /dev/tty 渲染 UI，
+    // 选中结果写入 tmpfile。
+    let escaped_paths = images
+        .iter()
+        .map(|p| {
+            let s = p.to_string_lossy();
+            format!("'{}'", s.replace('\'', "'\\''" ))
+        })
+        .collect::<Vec<_>>()
+        .join(" ");
+    let preview_escaped = preview_cmd.replace('"', "\\\"" );
+    let shell_cmd = format!(
+        "printf '%s\\n' {paths} | fzf --preview \"sh -c '{preview}'\" --preview-window=right:60% --ansi > {tmp}",
+        paths = escaped_paths,
+        preview = preview_escaped,
+        tmp = tmp.display()
+    );
+    let status = std::process::Command::new("sh")
+        .arg("-c")
+        .arg(&shell_cmd)
+        .status()
+        .map_err(|_| t!("fzf_error"))?;
+    if status.success() {
+        if tmp.exists() {
+            let selected = std::fs::read_to_string(&tmp)?;
+            let selected = selected.trim().to_string();
+            let _ = std::fs::remove_file(&tmp);
+            if !selected.is_empty() {
+                println!("{}", t!("setting_wallpaper"));
+                let path = std::path::PathBuf::from(&selected);
+                setter::set_from_path(&path)?;
+                println!("{}", t!("set_done"));
+            }
+        }
+    }
+    Ok(())
+}
+
+/// 根据当前终端类型构建 fzf --preview 使用的图片显示命令
+///
+/// 优先级：WezTerm(chafa iterm) → Kitty → iTerm2 → chafa → 文件名 fallback
+///
+/// 注意：wezterm imgcat 在 fzf preview 中有已知 bug，会永远处于 loading 状态而不显示图片。
+/// 参考：https://github.com/wezterm/wezterm/issues/6088
+///         https://github.com/junegunn/fzf/issues/3646
+/// WezTerm 支持 iTerm2 协议，因此在 WezTerm 中使用 chafa -f iterm 可得到真实图片渲染。
+fn build_preview_cmd() -> String {
+    let term_program = std::env::var("TERM_PROGRAM").unwrap_or_default();
+    let term = std::env::var("TERM").unwrap_or_default();
+    // 在 Rust 进程里读取终端尺寸，传给 chafa
+    // fzf preview 子进程的 stdout 被重定向，无法自动检测终端尺寸
+    let (cols, rows) = term_size();
+    // 预览窗格占右边 60%，高度留一行给 fzf 界面
+    let preview_w = (cols * 60 / 100).max(20);
+    let preview_h = rows.saturating_sub(2).max(10);
+    let size_arg = format!("-s {}x{}", preview_w, preview_h);
+    if term_program == "WezTerm" || std::env::var("WEZTERM_EXECUTABLE").is_ok() {
+        if which_exists("chafa") {
+            format!("chafa -f iterm {} --animate false {{}}", size_arg)
+        } else {
+            "echo 'Install chafa for image preview: brew install chafa'".to_string()
+        }
+    } else if term == "xterm-kitty" || std::env::var("KITTY_WINDOW_ID").is_ok() {
+        "kitty +kitten icat --clear --transfer-mode=memory --stdin=no --place=${FZF_PREVIEW_COLUMNS}x${FZF_PREVIEW_LINES}@0x0 {}".to_string()
+    } else if term_program == "iTerm.app" {
+        "imgcat -W ${FZF_PREVIEW_COLUMNS} -H ${FZF_PREVIEW_LINES} {}".to_string()
+    } else if which_exists("chafa") {
+        format!("chafa {} --animate false {{}}", size_arg)
+    } else {
+        "echo {}".to_string()
+    }
+}
+
+/// 读取当前终端宽度和高度（列数 x 行数）
+/// 通过 ioctl(TIOCGWINSZ) 直接读取终端宽高（列数 x 行数）
+/// 不依赖外部命令，失败时返回 80x24
+fn term_size() -> (usize, usize) {
+    #[cfg(unix)]
+    {
+        use std::os::unix::io::AsRawFd;
+        // winsize 结构体对应 struct winsize { ws_row, ws_col, ws_xpixel, ws_ypixel }
+        #[repr(C)]
+        struct Winsize {
+            ws_row: u16,
+            ws_col: u16,
+            ws_xpixel: u16,
+            ws_ypixel: u16,
+        }
+        // TIOCGWINSZ 在 macOS 上的值为 0x40087468
+        const TIOCGWINSZ: u64 = 0x40087468;
+        let mut ws = Winsize { ws_row: 0, ws_col: 0, ws_xpixel: 0, ws_ypixel: 0 };
+        // 尝试 stdout(fd=1)，如果失败尝试 stderr(fd=2)，再失败尝试 stdin(fd=0)
+        let fds = [
+            std::io::stdout().as_raw_fd(),
+            std::io::stderr().as_raw_fd(),
+            std::io::stdin().as_raw_fd(),
+        ];
+        for fd in fds {
+            let ret = unsafe { libc::ioctl(fd, TIOCGWINSZ, &mut ws) };
+            if ret == 0 && ws.ws_col > 0 && ws.ws_row > 0 {
+                return (ws.ws_col as usize, ws.ws_row as usize);
+            }
+        }
+    }
+    (80, 24)
+}
+
+/// 检查某个命令是否在 PATH 中存在
+fn which_exists(cmd: &str) -> bool {
+    std::process::Command::new("which")
+        .arg(cmd)
+        .output()
+        .map(|o| o.status.success())
+        .unwrap_or(false)
+}
+
+/// 处理 apply 子命令：将本地文件设为壁纸
+fn handle_apply(image: &str) -> Result<(), Box<dyn std::error::Error>> {
+    let path = std::path::PathBuf::from(image);
+    if !path.exists() {
+        return Err(format!("文件不存在: {}", image).into());
+    }
+    println!("{}", t!("setting_wallpaper"));
+    setter::set_from_path(&path)?;
+    println!("{}", t!("set_done"));
     Ok(())
 }
 

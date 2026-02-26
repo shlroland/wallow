@@ -2081,6 +2081,7 @@ dependencies = [
  "async-trait",
  "clap",
  "clap_complete",
+ "libc",
  "reqwest",
  "rust-i18n",
  "schemars",
