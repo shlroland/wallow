@@ -173,6 +173,15 @@ fn handle_list(config: &AppConfig, use_fzf: bool) -> Result<(), Box<dyn std::err
         return Ok(());
     }
     // fzf 交互模式
+    // 前置检查依赖
+    if !which_exists("fzf") {
+        return Err(t!("fzf_error").into());
+    }
+    let term_program = std::env::var("TERM_PROGRAM").unwrap_or_default();
+    let is_wezterm = term_program == "WezTerm" || std::env::var("WEZTERM_EXECUTABLE").is_ok();
+    if is_wezterm && !which_exists("chafa") {
+        return Err(t!("chafa_required").into());
+    }
     let preview_cmd = build_preview_cmd();
     println!("{}", t!("list_found", count => images.len()));
     let tmp = std::env::temp_dir().join("wallow_fzf_selection.txt");
