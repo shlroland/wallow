@@ -93,14 +93,17 @@ Opens an interactive wallpaper picker with image preview. Selecting an entry set
 | iTerm2   | iTerm2 inline | via `imgcat` |
 | Others   | auto (`chafa`) | best available protocol |
 
-### Automation (Schedule)
-
-Download a random fresh wallpaper daily:
+Register or update a crontab job to automatically download a fresh wallpaper on a schedule:
 
 ```bash
+# Register with a cron expression (also saves it to config.toml)
+wallow schedule "0 8 * * *"
+
+# Re-register using the cron expression already saved in config.toml
 wallow schedule
 ```
-*Follow the on-screen instructions to integrate with `crontab`.*
+
+The cron expression is saved to `~/.config/wallow/config.toml` under `[schedule]`. Any existing `wallow schedule` crontab entry is replaced, so running the command again is safe.
 
 ### Shell Completion
 
@@ -129,6 +132,11 @@ sorting = "random"
 
 [source.wallhaven]
 api_key = "your_wallhaven_api_key_here"
+
+[schedule]
+# Cron expression for the scheduled wallpaper job
+# Example: every day at 08:00
+cron = "0 8 * * *"
 ```
 
 ## 📄 License

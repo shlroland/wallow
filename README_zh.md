@@ -85,14 +85,14 @@ wallow config set query "nature"
 | iTerm2   | iTerm2 inline | 通过 `imgcat` |
 | 其他终端 | 自动（`chafa`） | 自动选择最佳协议 |
 
-### 自动化 (Schedule)
-
-每天自动下载一张随机的新鲜壁纸：
-
+注册或更新 crontab 定时任务，按指定频率自动下载新壁纸：
 ```bash
+# 传入 cron 表达式注册定时任务（同时写入 config.toml）
+wallow schedule "0 8 * * *"
+# 使用 config.toml 中已保存的 cron 表达式重新注册
 wallow schedule
 ```
-*执行后请根据提示将其加入 `crontab`。*
+cron 表达式会保存到 `~/.config/wallow/config.toml` 的 `[schedule]` 节。重复执行会替换旧的 crontab 条目，不会产生重复记录。
 
 ### Shell 自动补全
 
@@ -110,17 +110,18 @@ wallow completions fish > ~/.config/fish/completions/wallow.fish
 
 ```toml
 #:schema https://raw.githubusercontent.com/shlroland/wallow/master/wallow.schema.json
-
 [common]
 wallpaper_dir = "my_wallpapers"  # 壁纸保存目录
-
 [common.search]
 query = "nature"            # 默认搜索关键词
 resolution = "3840x2160"        # 默认分辨率
 sorting = "random"              # 默认排序
-
 [source.wallhaven]
 api_key = "你的_wallhaven_api_key" # 用于访问 NSFW 或提高频率限制
+[schedule]
+# 定时任务的 cron 表达式
+# 示例：每天 08:00 执行
+cron = "0 8 * * *"
 ```
 
 ## 📄 许可证
