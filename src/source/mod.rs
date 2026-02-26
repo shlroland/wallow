@@ -1,4 +1,5 @@
 // source/mod.rs — 壁纸源模块入口
+pub mod unsplash;
 pub mod wallhaven;
 
 // source.rs — 壁纸源抽象接口模块
@@ -19,7 +20,11 @@ pub struct WallpaperInfo {
     pub resolution: String,
     /// 来源站名称（如 "wallhaven"）
     #[allow(dead_code)]
+    #[allow(dead_code)]
     pub source: String,
+    /// 来源特定的附加数据（如 Unsplash 的 download_location）
+    #[allow(dead_code)]
+    pub extra: Option<String>,
 }
 
 /// 搜索参数结构体

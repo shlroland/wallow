@@ -79,6 +79,7 @@ impl WallpaperSource for WallhavenClient {
                 url: w.path,
                 resolution: w.resolution,
                 source: "wallhaven".to_string(),
+                extra: None,
             })
             .collect();
 
