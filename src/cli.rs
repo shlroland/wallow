@@ -86,11 +86,15 @@ pub enum Commands {
         shell: Shell,
     },
 
-    /// 定时任务：根据配置自动下载一张随机壁纸
+    /// 定时任务：注册或更新 crontab，自动每天下载一张随机壁纸
     ///
     /// 用法示例:
-    ///   wallow schedule
-    Schedule,
+    ///   wallow schedule              # 使用 config.toml 里的 cron 表达式重新注册
+    ///   wallow schedule "0 8 * * *"  # 写入配置并注册定时任务
+    Schedule {
+        /// Cron 表达式（不传则使用 config.toml 里的已保存值）
+        cron: Option<String>,
+    },
 
     /// 一键更换：下载、转换并设置为系统壁纸
     ///

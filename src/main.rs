@@ -77,8 +77,8 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             handle_themes()?;
         }
 
-        Commands::Schedule => {
-            handle_schedule(&config).await?;
+        Commands::Schedule { cron } => {
+            handle_schedule(&mut config, cron.as_deref()).await?;
         }
 
         Commands::Completions { shell } => {
@@ -503,41 +503,71 @@ async fn handle_run(
     }
 }
 
-/// 处理 schedule 子命令：自动下载每日壁纸
-async fn handle_schedule(config: &AppConfig) -> Result<(), Box<dyn std::error::Error>> {
-    let client = WallhavenClient::new(config.api_key.clone());
-
-    println!("{}", t!("search_start"));
-
-    let options = SearchOptions {
-        query: config.search_defaults.query.as_deref(),
-        resolution: &config.search_defaults.resolution,
-        categories: &config.search_defaults.categories,
-        purity: &config.search_defaults.purity,
-        sorting: "random",
+/// 处理 schedule 子命令：注册或更新 crontab 定时任务
+async fn handle_schedule(
+    config: &mut AppConfig,
+    cron_arg: Option<&str>,
+) -> Result<(), Box<dyn std::error::Error>> {
+    // 确定最终使用的 cron 表达式：命令行参数 > toml 配置
+    let cron = match cron_arg {
+        Some(expr) => expr.to_string(),
+        None => config
+            .schedule
+            .cron
+            .clone()
+            .ok_or("请提供 cron 表达式，或在 config.toml 的 [schedule] 节中设置 cron 字段")?,
     };
 
-    let wallpapers = client.search(options).await?;
-    let wallpaper = wallpapers.first().ok_or(t!("error_no_wallpapers"))?;
+    // 如果是通过命令行传入的，写入配置文件持久化
+    if cron_arg.is_some() {
+        config.set_cron(cron.clone())?;
+        println!("已将 cron 表达式 '{}' 写入配置文件", cron);
+    }
 
-    println!(
-        "{}",
-        t!(
-            "download_info",
-            current => 1,
-            total => 1,
-            id => wallpaper.id,
-            res => wallpaper.resolution
-        )
-    );
-
-    let save_path = client.download(wallpaper, &config.wallpaper_dir).await?;
-    println!("{}", t!("save_path", path => save_path.display()));
-
+    // 获取当前可执行文件路径，用于构造 crontab 条目
     let bin_path = std::env::current_exe()?;
     let bin_str = bin_path.to_string_lossy();
-    println!("{}", t!("schedule_tip", bin_path => bin_str));
+    // crontab 条目格式: "<cron表达式> <可执行文件> schedule --run"
+    // 用 --run 标志区分「注册模式」和「执行模式」，避免 crontab 触发时再次进入注册逻辑
+    let cron_entry = format!("{} {} schedule --run", cron, bin_str);
 
+    // 读取当前 crontab 内容
+    let existing = std::process::Command::new("crontab")
+        .arg("-l")
+        .output();
+
+    let current = match existing {
+        Ok(out) if out.status.success() => String::from_utf8_lossy(&out.stdout).to_string(),
+        // crontab -l 在无任何条目时返回非零退出码，视为空内容
+        _ => String::new(),
+    };
+
+    // 移除旧的 wallow schedule 条目（避免重复），再追加新条目
+    let filtered: String = current
+        .lines()
+        .filter(|line| !line.contains("wallow") || !line.contains("schedule"))
+        .map(|line| format!("{}
+", line))
+        .collect();
+    let new_crontab = format!("{}{}
+", filtered, cron_entry);
+
+    // 通过 `crontab -` 写入新的 crontab
+    let mut child = std::process::Command::new("crontab")
+        .arg("-")
+        .stdin(std::process::Stdio::piped())
+        .spawn()?;
+    {
+        use std::io::Write;
+        let stdin = child.stdin.as_mut().ok_or("无法获取 crontab stdin")?;
+        stdin.write_all(new_crontab.as_bytes())?;
+    }
+    let status = child.wait()?;
+    if !status.success() {
+        return Err("写入 crontab 失败".into());
+    }
+
+    println!("定时任务已注册: {}", cron_entry);
     Ok(())
 }
 
